@@ -1,0 +1,14 @@
+rule:
+  id: BFG-001
+  name: Single Account Brute Force
+  description: Multiple failed authentication attempts against a single account.
+
+  detection:
+    failure_threshold: 5
+    window_seconds: 300
+
+  severity: high
+
+  mitre:
+    technique: T1110.001
+    name: Password Guessing

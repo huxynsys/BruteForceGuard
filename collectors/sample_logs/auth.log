@@ -1,0 +1,7 @@
+Sep  5 21:30:10 server01 sshd[1234]: Failed password for admin from 192.168.1.50 port 53221 ssh2
+Sep  5 21:30:12 server01 sshd[1235]: Failed password for admin from 192.168.1.50 port 53222 ssh2
+Sep  5 21:30:15 server01 sshd[1236]: Failed password for admin from 192.168.1.50 port 53223 ssh2
+Sep  5 21:30:20 server01 sshd[1237]: Accepted password for admin from 192.168.1.50 port 53224 ssh2
+Sep  5 21:31:10 server01 sshd[1238]: Failed password for user1 from 192.168.1.60 port 54001 ssh2
+Sep  5 21:31:15 server01 sshd[1239]: Failed password for user2 from 192.168.1.60 port 54002 ssh2
+Sep  5 21:31:20 server01 sshd[1240]: Failed password for user3 from 192.168.1.60 port 54003 ssh2

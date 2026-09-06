@@ -1,0 +1,4 @@
+requests
+pydantic
+python-dateutil
+python-dotenv

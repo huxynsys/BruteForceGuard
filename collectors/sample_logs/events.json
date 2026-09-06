@@ -1,0 +1,28 @@
+[
+  {
+    "timestamp": "2026-09-05T21:40:00Z",
+    "source": "web",
+    "source_ip": "10.0.0.25",
+    "destination_ip": "10.0.0.10",
+    "username": "admin",
+    "result": "failure",
+    "service": "https",
+    "port": 443,
+    "hostname": "web01",
+    "user_agent": "Mozilla/5.0",
+    "event_id": "login_failed"
+  },
+  {
+    "timestamp": "2026-09-05T21:40:05Z",
+    "source": "web",
+    "source_ip": "10.0.0.25",
+    "destination_ip": "10.0.0.10",
+    "username": "admin",
+    "result": "success",
+    "service": "https",
+    "port": 443,
+    "hostname": "web01",
+    "user_agent": "Mozilla/5.0",
+    "event_id": "login_success"
+  }
+]

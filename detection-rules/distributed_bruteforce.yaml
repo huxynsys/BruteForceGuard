@@ -1,0 +1,15 @@
+rule:
+  id: BFG-003
+  name: Distributed Brute Force
+  description: Multiple source IPs targeting the same account.
+
+  detection:
+    minimum_source_ips: 3
+    minimum_failures: 10
+    window_seconds: 600
+
+  severity: high
+
+  mitre:
+    technique: T1110
+    name: Brute Force

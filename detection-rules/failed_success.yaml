@@ -1,0 +1,13 @@
+rule:
+  id: BFG-004
+  name: Failed Authentication Followed By Success
+
+  detection:
+    minimum_failures: 3
+    window_seconds: 300
+
+  severity: critical
+
+  mitre:
+    technique: T1110
+    name: Brute Force
