@@ -68,6 +68,12 @@ class Alert(Base):
         nullable=True,
     )
 
+    confidence: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=50,
+    )
+
     evidence: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
@@ -77,5 +83,12 @@ class Alert(Base):
         String(20),
         nullable=False,
         default="open",
+        index=True,
+    )
+
+    # Optional: Link to attack session
+    session_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
         index=True,
     )

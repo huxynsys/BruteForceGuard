@@ -1,0 +1,16 @@
+rule:
+  id: BFG-006
+  name: Low-and-Slow Authentication Attack
+  description: Persistent authentication failures spread across multiple time intervals.
+
+  detection:
+    minimum_failures: 10
+    window_seconds: 3600
+    minimum_active_intervals: 5
+
+  severity: medium
+  confidence: 60
+
+  mitre:
+    technique: T1110
+    name: Brute Force

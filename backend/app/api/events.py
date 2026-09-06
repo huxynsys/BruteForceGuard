@@ -1,27 +1,153 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.auth_event import (
-    AuthEventCreate,
-    AuthEventResponse,
-)
-from app.services.event_service import create_auth_event
+from app.schemas.auth_event import AuthEventCreate, AuthEventResponse
+from app.services.event_service import EventService
+
+from app.services.detection_service import DetectionService
+from app.services.session_service import SessionService
+from app.services.correlation_service import CorrelationService
+from app.core.detection_config import get_service_thresholds
 
 
 router = APIRouter(
     prefix="/api/v1/events",
-    tags=["Authentication Events"],
+    tags=["events"],
 )
 
 
-@router.post(
-    "",
-    response_model=AuthEventResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def ingest_event(
-    event: AuthEventCreate,
+@router.post("/", response_model=AuthEventResponse)
+def create_event(
+    event_data: AuthEventCreate,
     db: Session = Depends(get_db),
 ):
-    return create_auth_event(db, event)
+    """Create an authentication event and run detection."""
+
+    # 1. Initialize event service
+    event_service = EventService(db)
+
+    # 2. Create the authentication event
+    new_event = event_service.create_event(db, event_data)
+
+    # 3. Initialize detection service
+    detection_service = DetectionService(db)
+
+    # 4. Get service-specific detection thresholds
+    thresholds = get_service_thresholds(new_event.service)
+
+    # 5. Run all detectors
+    detectors = [
+        (
+            "single_account",
+            detection_service.detect_single_account_bruteforce,
+            {
+                "threshold": thresholds["failure_threshold"],
+                "window_seconds": thresholds["window_seconds"],
+            },
+        ),
+        (
+            "password_spray",
+            detection_service.detect_password_spraying,
+            {
+                "minimum_users": thresholds["password_spray_users"],
+                "minimum_failures": thresholds["failure_threshold"] * 2,
+                "window_seconds": thresholds["window_seconds"],
+            },
+        ),
+        (
+            "distributed",
+            detection_service.detect_distributed_bruteforce,
+            {
+                "minimum_source_ips": thresholds["distributed_ips"],
+                "minimum_failures": thresholds["failure_threshold"] * 2,
+                "window_seconds": thresholds["window_seconds"],
+            },
+        ),
+        (
+            "failed_success",
+            detection_service.detect_failed_then_success,
+            {
+                "minimum_failures": 3,
+                "window_seconds": 300,
+            },
+        ),
+        (
+            "credential_stuffing",
+            detection_service.detect_credential_stuffing,
+            {
+                "minimum_users": thresholds["credential_stuffing_users"],
+                "minimum_failures": thresholds["credential_stuffing_failures"],
+                "window_seconds": 600,
+            },
+        ),
+        (
+            "low_and_slow",
+            detection_service.detect_low_and_slow,
+            {
+                "minimum_failures": 10,
+                "window_seconds": 3600,
+                "minimum_active_intervals": 5,
+            },
+        ),
+    ]
+
+    for name, detector, kwargs in detectors:
+        try:
+            alert = detector(new_event, **kwargs)
+
+            if alert:
+                # Optional: Link alert to an attack session.
+                #
+                # Session integration is intentionally disabled for now.
+                # We will enable it after the core detection pipeline
+                # has been verified.
+                pass
+
+        except Exception as e:
+            # Detection errors must not prevent event ingestion.
+            print(f"Detection {name} failed: {e}")
+
+    # 6. Return the created authentication event
+    return new_event
+
+
+@router.get("/", response_model=list[AuthEventResponse])
+def list_events(
+    db: Session = Depends(get_db),
+    limit: int = 100,
+    skip: int = 0,
+):
+    """List recent authentication events."""
+
+    event_service = EventService(db)
+
+    return event_service.get_events(
+        db,
+        limit=limit,
+        skip=skip,
+    )
+
+
+@router.get("/{event_id}", response_model=AuthEventResponse)
+def get_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a specific authentication event by ID."""
+
+    event_service = EventService(db)
+
+    event = event_service.get_event(
+        db,
+        event_id,
+    )
+
+
+    if not event:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found",
+        )
+
+    return event

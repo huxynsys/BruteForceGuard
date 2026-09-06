@@ -20,6 +20,8 @@ class AlertResponse(BaseModel):
     service: str | None
 
     mitre_technique: str | None
+    confidence: int
 
     evidence: dict | None
     status: str
+    session_id: int | None
