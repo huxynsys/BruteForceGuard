@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.auth_event import AuthEvent
 from app.models.alert import Alert
-from app.core.detection_config import get_service_thresholds
-from app.core.trusted_sources import is_trusted_ip
 
 
 class DetectionService:

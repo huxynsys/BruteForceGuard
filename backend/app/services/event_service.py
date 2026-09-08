@@ -12,7 +12,6 @@ class EventService:
 
     def create_event(
         self,
-        db: Session,
         event_data: AuthEventCreate,
     ) -> AuthEvent:
 
@@ -35,15 +34,14 @@ class EventService:
             raw_event=event_data.raw_event,
         )
 
-        db.add(event)
-        db.commit()
-        db.refresh(event)
+        self.db.add(event)
+        self.db.commit()
+        self.db.refresh(event)
 
         return event
 
     def get_events(
         self,
-        db: Session,
         limit: int = 100,
         skip: int = 0,
     ) -> list[AuthEvent]:
@@ -55,11 +53,10 @@ class EventService:
             .limit(limit)
         )
 
-        return list(db.scalars(statement))
+        return list(self.db.scalars(statement))
 
     def get_event(
         self,
-        db: Session,
         event_id: int,
     ) -> AuthEvent | None:
 
@@ -67,4 +64,4 @@ class EventService:
             AuthEvent.id == event_id
         )
 
-        return db.scalar(statement)
+        return self.db.scalar(statement)

@@ -8,6 +8,7 @@ same models can be created on either database.
 
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -69,6 +70,87 @@ def db(test_engine):
     )
     yield session
     session.close()
+
+
+@pytest.fixture()
+def alert_factory(db):
+    """Factory that persists an Alert directly through ``db``."""
+
+    from app.models.alert import Alert
+
+    def _make(
+        *,
+        alert_type="single_account_bruteforce",
+        severity="high",
+        confidence=70,
+        title="Test Alert",
+        description="Test detection",
+        source_ip="10.0.0.1",
+        username="admin",
+        service="ssh",
+        status="open",
+        evidence=None,
+    ):
+        alert = Alert(
+            alert_type=alert_type,
+            severity=severity,
+            confidence=confidence,
+            title=title,
+            description=description,
+            source_ip=source_ip,
+            username=username,
+            service=service,
+            status=status,
+            evidence=evidence or {},
+        )
+        db.add(alert)
+        db.commit()
+        db.refresh(alert)
+        return alert
+
+    return _make
+
+
+@pytest.fixture()
+def session_factory(db):
+    """Factory that persists an AttackSession directly through ``db``."""
+
+    from app.models.attack_session import AttackSession
+
+    def _make(
+        *,
+        started_at=None,
+        session_type="single_account",
+        severity="high",
+        event_count=1,
+        source_ips=None,
+        usernames=None,
+        services=None,
+        detection_types=None,
+        status="active",
+    ):
+        started_at = started_at or datetime.now(timezone.utc)
+
+        session = AttackSession(
+            started_at=started_at,
+            last_seen_at=started_at,
+            session_type=session_type,
+            severity=severity,
+            event_count=event_count,
+            source_ips=source_ips if source_ips is not None else [],
+            usernames=usernames if usernames is not None else [],
+            services=services if services is not None else [],
+            detection_types=(
+                detection_types if detection_types is not None else []
+            ),
+            status=status,
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session
+
+    return _make
 
 
 @pytest.fixture()

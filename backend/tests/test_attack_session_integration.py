@@ -117,32 +117,86 @@ def test_detection_type_is_recorded_on_session(db):
     assert session.detection_types == ["single_account"]
 
 
-def test_distinct_attack_types_get_distinct_sessions(db):
+def test_multiple_detection_signals_share_one_session(db):
     """
-    Different attack types are not merged into one session:
-    the correlation key is (session_type, source_ip, username, service).
+    Section 5.9: one real-world attack can trigger multiple detectors
+    (e.g. 10 failures -> single-account alert, then a successful login
+    -> failed-success alert).  Because both share the same correlation
+    key (ip + user + service) they land in ONE attack session and the
+    session accumulates both detection types.
     """
     timestamp = datetime.now(timezone.utc)
 
-    event = _make_event(db, timestamp)
-    alert = _make_alert(db)
+    event1 = _make_event(db, timestamp)
+    alert1 = _make_alert(db)
+
     service = AttackSessionIntegrationService(db)
 
-    single_account_session = service.process_alert(
-        event,
-        alert,
+    session1 = service.process_alert(
+        event1,
+        alert1,
         "single_account",
     )
 
-    failed_success_session = service.process_alert(
-        event,
-        alert,
+    event2 = _make_event(db, timestamp + timedelta(seconds=60))
+    alert2 = _make_alert(db, severity="critical")
+
+    session2 = service.process_alert(
+        event2,
+        alert2,
         "failed_success",
     )
 
-    assert single_account_session.id != failed_success_session.id
+    assert session1.id == session2.id
+    assert session2.session_type == "single_account"
+    assert "single_account" in session2.detection_types
+    assert "failed_success" in session2.detection_types
+
+
+def test_distinct_attacks_get_distinct_sessions(db):
+    """
+    Section 5.10: attacks with different correlation keys do NOT merge.
+    A single-account brute force against `admin` and a distributed
+    attack against `administrator` are different attacks, so they get
+    different sessions.
+    """
+    timestamp = datetime.now(timezone.utc)
+
+    service = AttackSessionIntegrationService(db)
+
+    single_account_session = service.process_alert(
+        _make_event(db, timestamp),
+        _make_alert(db),
+        "single_account",
+    )
+
+    # Distributed attack against a DIFFERENT account (different key).
+    admin_event = AuthEvent(
+        timestamp=timestamp + timedelta(seconds=10),
+        source="test",
+        source_ip="10.0.0.9",
+        username="administrator",
+        result="failure",
+        service="ssh",
+        port=22,
+    )
+    db.add(admin_event)
+    db.commit()
+    db.refresh(admin_event)
+
+    admin_alert = _make_alert(db)
+    admin_alert.alert_type = "distributed_bruteforce"
+    admin_alert.username = "administrator"
+
+    distributed_session = service.process_alert(
+        admin_event,
+        admin_alert,
+        "distributed",
+    )
+
+    assert single_account_session.id != distributed_session.id
     assert single_account_session.session_type == "single_account"
-    assert failed_success_session.session_type == "failed_success"
+    assert distributed_session.session_type == "distributed"
 
 
 def test_severity_escalates_but_never_downgrades(db):

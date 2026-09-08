@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,8 @@ from app.core.detection_config import get_service_thresholds
 from app.services.attack_session_service import (
     AttackSessionIntegrationService,
 )
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -29,7 +33,16 @@ def create_event(
     event_service = EventService(db)
 
     # 2. Create the authentication event
-    new_event = event_service.create_event(db, event_data)
+    new_event = event_service.create_event(event_data)
+
+    logger.info(
+        "Authentication event accepted: id=%s result=%s service=%s username=%s source_ip=%s",
+        new_event.id,
+        new_event.result,
+        new_event.service,
+        new_event.username,
+        new_event.source_ip,
+    )
 
     # 3. Initialize detection service
     detection_service = DetectionService(db)
@@ -100,6 +113,12 @@ def create_event(
             alert = detector(new_event, **kwargs)
 
             if alert:
+                logger.info(
+                    "Detection triggered: type=%s event_id=%s",
+                    name,
+                    new_event.id,
+                )
+
                 session_integration_service.process_alert(
                     event=new_event,
                     alert=alert,
@@ -108,7 +127,12 @@ def create_event(
 
         except Exception as e:
             # Detection errors must not prevent event ingestion.
-            print(f"Detection {name} failed: {e}")
+            logger.warning(
+                "Detector %s failed for event %s: %s",
+                name,
+                new_event.id,
+                e,
+            )
 
     # 6. Return the created authentication event
     return new_event
@@ -125,7 +149,6 @@ def list_events(
     event_service = EventService(db)
 
     return event_service.get_events(
-        db,
         limit=limit,
         skip=skip,
     )
@@ -140,11 +163,7 @@ def get_event(
 
     event_service = EventService(db)
 
-    event = event_service.get_event(
-        db,
-        event_id,
-    )
-
+    event = event_service.get_event(event_id)
 
     if not event:
         raise HTTPException(

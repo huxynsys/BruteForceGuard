@@ -84,17 +84,23 @@ def test_full_pipeline_end_to_end(client):
     assert "single_account_bruteforce" in alert_types
     assert "failed_then_success" in alert_types
 
-    session_types = {
-        s["session_type"] for s in client.get("/api/v1/attack-sessions/").json()
-    }
-    assert "single_account" in session_types
-    assert "failed_success" in session_types
+    # Section 5.9: both detection signals describe ONE attack, so they
+    # live in the SAME attack session and the session records both
+    # detection types.
+    sessions = client.get("/api/v1/attack-sessions/").json()
+    assert len(sessions) == 1
+    assert sessions[0]["id"] == session_id
+    assert sessions[0]["session_type"] == "single_account"
+    assert "single_account" in sessions[0]["detection_types"]
+    assert "failed_success" in sessions[0]["detection_types"]
+    assert sessions[0]["event_count"] == 2
 
     # ---- the session still exists and can be retrieved by ID ----
     assert client.get(f"/api/v1/attack-sessions/{session_id}").status_code == 200
 
-    # ---- active stats reflect the sessions ----
+    # ---- active stats reflect the updated session ----
     stats = client.get("/api/v1/attack-sessions/stats/active").json()
-    assert stats["active_sessions"] == 2
+    assert stats["active_sessions"] == 1
+    assert stats["total_events"] == 2
     assert stats["unique_source_ips"] == 1
     assert stats["unique_usernames"] == 1

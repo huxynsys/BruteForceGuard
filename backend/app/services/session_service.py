@@ -1,9 +1,24 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.attack_session import AttackSession
+
+
+def _to_naive_utc(value: datetime) -> datetime:
+    """
+    Normalize a datetime to naive UTC so comparisons never mix
+    offset-aware and offset-naive values.
+
+    PostgreSQL TIMESTAMPTZ returns offset-aware datetimes while SQLite
+    returns naive ones; normalizing both sides keeps the service correct
+    on either backend.
+    """
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return value
 
 
 class SessionService:
@@ -25,7 +40,9 @@ class SessionService:
         and is still within the configured timeout window.
         """
 
-        timestamp = event_timestamp or datetime.now().astimezone()
+        timestamp = _to_naive_utc(
+            event_timestamp or datetime.now(timezone.utc)
+        )
 
         statement = select(AttackSession).where(
             AttackSession.session_type == session_type,
@@ -39,7 +56,7 @@ class SessionService:
             # Check timeout using the event timeline.
             if session.last_seen_at:
                 elapsed = (
-                    timestamp - session.last_seen_at
+                    timestamp - _to_naive_utc(session.last_seen_at)
                 ).total_seconds()
 
                 if elapsed > timeout_seconds:
@@ -67,6 +84,89 @@ class SessionService:
         self.db.commit()
         return None
 
+    def find_session_by_correlation(
+        self,
+        key_fields: tuple[str, ...],
+        source_ip: str | None = None,
+        username: str | None = None,
+        service: str | None = None,
+        event_timestamp: datetime | None = None,
+        timeout_seconds: int = 600,
+    ):
+        """
+        Find an active session whose correlation key matches an alert.
+
+        ``key_fields`` decides which dimensions MUST already exist on the
+        session for the alert to belong to it (Section 5.10):
+
+        * single-account / failed-success / low-and-slow -> ip + user + service
+        * password-spray / credential-stuffing           -> ip + service
+        * distributed                                     -> user + service
+
+        Sessions that have been inactive beyond ``timeout_seconds`` on the
+        event timeline are closed as a side effect and are not returned.
+        """
+        timestamp = _to_naive_utc(
+            event_timestamp or datetime.now(timezone.utc)
+        )
+
+        statement = (
+            select(AttackSession)
+            .where(AttackSession.status == "active")
+            .order_by(AttackSession.last_seen_at.desc())
+        )
+
+        sessions = list(self.db.scalars(statement))
+
+        for session in sessions:
+
+            # Timeout is checked on the event timeline, not wall-clock.
+            if session.last_seen_at:
+                elapsed = (
+                    timestamp - _to_naive_utc(session.last_seen_at)
+                ).total_seconds()
+
+                if elapsed > timeout_seconds:
+                    session.status = "closed"
+                    continue
+
+            matched = True
+
+            for field in key_fields:
+                if field == "source_ip":
+                    if (
+                        not source_ip
+                        or not session.source_ips
+                        or source_ip not in session.source_ips
+                    ):
+                        matched = False
+                        break
+
+                elif field == "username":
+                    if (
+                        not username
+                        or not session.usernames
+                        or username not in session.usernames
+                    ):
+                        matched = False
+                        break
+
+                elif field == "service":
+                    if (
+                        not service
+                        or not session.services
+                        or service not in session.services
+                    ):
+                        matched = False
+                        break
+
+            if matched:
+                self.db.commit()
+                return session
+
+        self.db.commit()
+        return None
+
     def create_session(
         self,
         session_type: str,
@@ -76,10 +176,30 @@ class SessionService:
         username: str | None = None,
         service: str | None = None,
         detection_type: str | None = None,
+        additional_source_ips: list[str] | None = None,
+        additional_usernames: list[str] | None = None,
     ):
         """
         Create a new attack session using the authentication event timestamp.
+
+        ``additional_source_ips`` / ``additional_usernames`` let the
+        integration layer seed the session with the full scope of the
+        detection (e.g. ALL source IPs of a distributed attack, or ALL
+        affected accounts of a spray) instead of only the triggering
+        event's single values.
         """
+
+        source_ips = [source_ip] if source_ip else []
+
+        for ip in additional_source_ips or []:
+            if ip not in source_ips:
+                source_ips.append(ip)
+
+        usernames = [username] if username else []
+
+        for user in additional_usernames or []:
+            if user not in usernames:
+                usernames.append(user)
 
         session = AttackSession(
             started_at=event_timestamp,
@@ -87,8 +207,8 @@ class SessionService:
             session_type=session_type,
             severity=severity,
             event_count=1,
-            source_ips=[source_ip] if source_ip else [],
-            usernames=[username] if username else [],
+            source_ips=source_ips,
+            usernames=usernames,
             services=[service] if service else [],
             detection_types=[detection_type] if detection_type else [],
             status="active",
@@ -109,45 +229,73 @@ class SessionService:
         service: str | None = None,
         detection_type: str | None = None,
         severity: str | None = None,
+        additional_source_ips: list[str] | None = None,
+        additional_usernames: list[str] | None = None,
     ):
         """
         Update an existing attack session with new evidence.
+
+        ``additional_source_ips`` / ``additional_usernames`` let the
+        integration layer merge the FULL scope of a detection (from the
+        alert's evidence) into the session's maintained lists.
         """
 
         session.last_seen_at = max(
-            session.last_seen_at,
-            event_timestamp,
+            _to_naive_utc(session.last_seen_at),
+            _to_naive_utc(event_timestamp),
         )
 
         session.event_count += 1
 
-        if source_ip:
-            if not session.source_ips:
-                session.source_ips = []
+        # NOTE: the JSONB list columns are plain (no MutableList tracking),
+        # so every list mutation MUST be applied through reassignment —
+        # in-place appends on a loaded list are silently not persisted.
 
-            if source_ip not in session.source_ips:
-                session.source_ips.append(source_ip)
+        if source_ip:
+            ips = list(session.source_ips or [])
+
+            if source_ip not in ips:
+                ips.append(source_ip)
+
+            session.source_ips = ips
 
         if username:
-            if not session.usernames:
-                session.usernames = []
+            users = list(session.usernames or [])
 
-            if username not in session.usernames:
-                session.usernames.append(username)
+            if username not in users:
+                users.append(username)
+
+            session.usernames = users
 
         if service:
-            if not session.services:
-                session.services = []
+            services = list(session.services or [])
 
-            if service not in session.services:
-                session.services.append(service)
+            if service not in services:
+                services.append(service)
+
+            session.services = services
 
         if detection_type:
-            if not session.detection_types:
-                session.detection_types = []
+            types = list(session.detection_types or [])
 
-            if detection_type not in session.detection_types:
-                session.detection_types.append(detection_type)
+            if detection_type not in types:
+                types.append(detection_type)
+
+            session.detection_types = types
+
+        for ip in additional_source_ips or []:
+            ips = list(session.source_ips or [])
+
+            if ip and ip not in ips:
+                ips.append(ip)
+                session.source_ips = ips
+
+        for user in additional_usernames or []:
+            users = list(session.usernames or [])
+
+            if user and user not in users:
+                users.append(user)
+                session.usernames = users
 
         if severity:
             severity_rank = {
@@ -198,7 +346,7 @@ class SessionService:
         Close active sessions that have been inactive for too long.
         """
 
-        now = datetime.now().astimezone()
+        now = _to_naive_utc(datetime.now(timezone.utc))
 
         statement = select(AttackSession).where(
             AttackSession.status == "active"
@@ -214,7 +362,7 @@ class SessionService:
                 continue
 
             elapsed = (
-                now - session.last_seen_at
+                now - _to_naive_utc(session.last_seen_at)
             ).total_seconds()
 
             if elapsed > timeout_seconds:
