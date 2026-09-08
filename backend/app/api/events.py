@@ -6,9 +6,10 @@ from app.schemas.auth_event import AuthEventCreate, AuthEventResponse
 from app.services.event_service import EventService
 
 from app.services.detection_service import DetectionService
-from app.services.session_service import SessionService
-from app.services.correlation_service import CorrelationService
 from app.core.detection_config import get_service_thresholds
+from app.services.attack_session_service import (
+    AttackSessionIntegrationService,
+)
 
 
 router = APIRouter(
@@ -32,6 +33,8 @@ def create_event(
 
     # 3. Initialize detection service
     detection_service = DetectionService(db)
+
+    session_integration_service = AttackSessionIntegrationService(db)
 
     # 4. Get service-specific detection thresholds
     thresholds = get_service_thresholds(new_event.service)
@@ -97,12 +100,11 @@ def create_event(
             alert = detector(new_event, **kwargs)
 
             if alert:
-                # Optional: Link alert to an attack session.
-                #
-                # Session integration is intentionally disabled for now.
-                # We will enable it after the core detection pipeline
-                # has been verified.
-                pass
+                session_integration_service.process_alert(
+                    event=new_event,
+                    alert=alert,
+                    detection_type=name,
+                )
 
         except Exception as e:
             # Detection errors must not prevent event ingestion.

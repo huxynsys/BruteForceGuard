@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, IPvAnyAddress
 
 
 class AlertResponse(BaseModel):
@@ -15,7 +15,7 @@ class AlertResponse(BaseModel):
     title: str
     description: str
 
-    source_ip: str | None
+    source_ip: IPvAnyAddress | None
     username: str | None
     service: str | None
 
