@@ -1,5 +1,6 @@
 import type { Alert } from '../../types'
-import { detectionLabel, type Severity } from '../../types'
+import { detectionLabel } from '../../lib/detectionLabels'
+import type { Severity } from '../../types'
 import { SeverityBadge } from '../ui/Cards'
 
 function shortTime(iso: string): string {

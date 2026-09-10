@@ -76,15 +76,4 @@ export interface DashboardAnalytics {
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
 
-export const DETECTION_LABELS: Record<string, string> = {
-  single_account_bruteforce: 'Single Account Brute Force',
-  password_spray: 'Password Spray',
-  distributed: 'Distributed Brute Force',
-  failed_success: 'Failed -> Success',
-  credential_stuffing: 'Credential Stuffing',
-  low_and_slow: 'Low & Slow Attack',
-}
-
-export function detectionLabel(key: string): string {
-  return DETECTION_LABELS[key] ?? key
-}
+export { detectionLabel, DETECTION_LABELS } from '../lib/detectionLabels'

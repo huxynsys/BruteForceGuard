@@ -28,7 +28,7 @@ function SeverityPanel({ summary }: { summary: DashboardSummary }) {
       <div className="section-heading">
         <div>
           <span className="eyebrow">Risk posture</span>
-          <h3 className="panel-title">Severity distribution</h3>
+            <h3 className="panel-title">Severity Distribution</h3>
         </div>
         <ShieldAlert size={18} aria-hidden="true" />
       </div>
@@ -133,7 +133,10 @@ function ActiveAttacks({ sessions }: { sessions: AttackSession[] }) {
                 aria-label={`Open session ${session.id}`}
                 onClick={() => navigate(`/sessions/${session.id}`)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') navigate(`/sessions/${session.id}`)
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/sessions/${session.id}`)
+                  }
                 }}
                 className="clickable"
               >
@@ -155,7 +158,7 @@ function ActiveAttacks({ sessions }: { sessions: AttackSession[] }) {
 function RecentAlerts({ alerts }: { alerts: Alert[] }) {
   return (
     <div className="neo-card incident-feed">
-      <div className="section-heading"><div><span className="eyebrow">Detection engine</span><h3 className="panel-title">Incident feed</h3></div><span className="feed-dot" aria-label="Live feed" /></div>
+      <div className="section-heading"><div><span className="eyebrow">Detection engine</span><h3 className="panel-title">Recent Alerts</h3></div><span className="feed-dot" aria-label="Live feed" /></div>
       {alerts.length === 0 ? (
         <EmptyState
           title="No alerts yet"
@@ -247,10 +250,10 @@ export default function Dashboard({
       <AnalystSignal summary={summary} />
 
       <div className="kpi-grid">
-        <StatCard label="Authentication events" value={summary.total_events} sub="All observed activity" />
-        <StatCard label="Open incidents" value={summary.total_alerts} sub="Requires investigation" />
-        <StatCard label="Active sessions" value={summary.active_sessions} sub="Correlated right now" />
-        <StatCard label="Unique source IPs" value={summary.unique_source_ips} sub="Across protected services" />
+        <StatCard label="Auth Events" value={summary.total_events.toLocaleString()} sub="All observed activity" />
+        <StatCard label="Active Alerts" value={summary.total_alerts} sub="Requires investigation" />
+        <StatCard label="Active Sessions" value={summary.active_sessions} sub="Correlated right now" />
+        <StatCard label="Unique Source IPs" value={summary.unique_source_ips} sub="Across protected services" />
       </div>
 
       <div className="dashboard-grid dashboard-grid--overview">

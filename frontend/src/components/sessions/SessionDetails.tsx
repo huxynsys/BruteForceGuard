@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { XCircle } from 'lucide-react'
 import type { AttackSession } from '../../types'
-import { detectionLabel } from '../../types'
+import { detectionLabel } from '../../lib/detectionLabels'
 import { SeverityBadge } from '../ui/Cards'
 
 function fullTime(iso: string): string {

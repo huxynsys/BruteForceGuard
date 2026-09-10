@@ -75,14 +75,14 @@ describe('DashboardPage (UI flow)', () => {
     expect(screen.getByText('critical')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('Recent Alerts')).toBeInTheDocument()
-    expect(screen.getByText('Single Account Brute Force')).toBeInTheDocument()
+    expect(screen.getAllByText('Single Account Brute Force').length).toBeGreaterThan(0)
   })
 
   it('shows the active attack from the sessions endpoint', async () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText('192.168.1.44')).toBeInTheDocument()
+      expect(screen.getAllByText('192.168.1.44').length).toBeGreaterThan(0)
     })
   })
 

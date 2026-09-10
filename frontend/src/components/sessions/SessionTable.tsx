@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { AttackSession } from '../../types'
-import { detectionLabel } from '../../types'
+import { detectionLabel } from '../../lib/detectionLabels'
 import { SeverityBadge } from '../ui/Cards'
 
 function shortTime(iso: string): string {

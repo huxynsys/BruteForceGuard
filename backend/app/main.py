@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.events import router as events_router
 from app.api.alerts import router as alerts_router
-from app.api.attack_sessions import router as attack_sessions_router  # NEW
+from app.api.attack_sessions import router as attack_sessions_router
+from app.api.dashboard import router as dashboard_router  # Phase 6
 from app.db.database import Base, engine
 from app.models.auth_event import AuthEvent
 from app.models.alert import Alert
-from app.models.attack_session import AttackSession  # NEW
+from app.models.attack_session import AttackSession
 
 
 @asynccontextmanager
@@ -24,15 +26,29 @@ app = FastAPI(
         "Authentication threat detection and brute-force "
         "monitoring platform."
     ),
-    version="0.4.0",  # Updated for Phase 4
+    version="0.5.0",  # Phase 6: dashboard & visualization
     lifespan=lifespan,
+)
+
+# CORS for the Phase 6 dashboard frontend (Vite dev server).
+# Development origins only; production deployments should restrict this.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
 # Register routers
 app.include_router(events_router)
 app.include_router(alerts_router)
-app.include_router(attack_sessions_router)  # NEW
+app.include_router(attack_sessions_router)
+app.include_router(dashboard_router)  # Phase 6
 
 
 @app.get("/health", tags=["System"])
@@ -40,5 +56,5 @@ def health_check():
     return {
         "status": "healthy",
         "service": "bruteforceguard-api",
-        "version": "0.4.0",
+        "version": "0.5.0",
     }
