@@ -76,6 +76,29 @@ class AttackSession(Base):
         index=True,
     )
 
+    # Phase 7 intelligence enrichment
+    risk_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    risk_level: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="informational",
+    )
+
+    risk_factors: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    behavioral_profile: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

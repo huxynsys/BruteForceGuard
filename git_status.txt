@@ -1,0 +1,31 @@
+ M backend/app/api/events.py
+ M backend/app/main.py
+ M backend/app/models/alert.py
+ M backend/app/models/attack_session.py
+ M backend/app/schemas/alert.py
+ M backend/app/schemas/attack_session.py
+ M backend/tests/conftest.py
+ M frontend/src/index.css
+?? backend/app/api/intelligence.py
+?? backend/app/intelligence/
+?? backend/app/models/threat_indicator.py
+?? backend/tests/test_intelligence.py
+?? backend/tests/test_intelligence_api.py
+?? backend/tests/test_intelligence_service.py
+?? backend/tests/test_mitre.py
+?? backend/tests/test_reputation.py
+?? backend/tests/test_risk.py
+?? frontend/src/api/intelligence.ts
+?? frontend/src/components/intelligence/
+?? frontend/src/lib/risk.ts
+?? frontend/src/types/intelligence.ts
+?? git_status.txt
+ backend/app/api/events.py             |  16 +++-
+ backend/app/main.py                   |   3 +
+ backend/app/models/alert.py           |  33 +++++++
+ backend/app/models/attack_session.py  |  23 +++++
+ backend/app/schemas/alert.py          |  10 +-
+ backend/app/schemas/attack_session.py |   8 +-
+ backend/tests/conftest.py             |   1 +
+ frontend/src/index.css                | 173 ++++++++++++++++++++++++++++++++++
+ 8 files changed, 264 insertions(+), 3 deletions(-)

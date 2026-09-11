@@ -873,4 +873,177 @@ table.data tbody tr:hover { background: #fafcfc; }
   .analyst-signal { align-items: flex-start; flex-direction: column; gap: 8px; padding: 11px 12px; }
   .signal-items { width: 100%; justify-content: space-between; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
   .signal-items span { flex-shrink: 0; }
+/* ---------------------------- Phase 7: Intelligence ---------------------- */
+
+.risk-score {
+  padding: 12px 0;
+}
+
+.risk-score__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.risk-score__label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.risk-score__level {
+  font-weight: 600;
+}
+
+.risk-score__bar {
+  height: 8px;
+  background: var(--shadow-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.risk-score__bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 300ms ease;
+}
+
+.risk-score--critical .risk-score__bar-fill { background: var(--critical); }
+.risk-score--high .risk-score__bar-fill { background: var(--severity-high); }
+.risk-score--medium .risk-score__bar-fill { background: var(--severity-medium); }
+.risk-score--low .risk-score__bar-fill { background: var(--severity-low); }
+.risk-score--informational .risk-score__bar-fill { background: var(--severity-low); }
+
+.risk-score__value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.risk-score__value-max {
+  font-size: 0.6em;
+  color: var(--text-muted);
+}
+
+/* Risk factors */
+.risk-factors__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.risk-factors__item {
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
+}
+
+.risk-factors__item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.risk-factors__item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.risk-factors__item-value {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.risk-factors__item-reason {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.risk-factors__total {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--shadow-dark);
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* MITRE technique */
+.mitre-technique__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mitre-technique__name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mitre-technique__tactic {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mitre-technique__description {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Reputation panel */
+.reputation-panel__score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.reputation-panel__bar {
+  height: 6px;
+  background: var(--shadow-dark);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.reputation-panel__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 300ms ease;
+}
+
+.reputation-panel__details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.reputation-panel__details dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.reputation-panel__details dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+/* Threat intel badge sub-text */
+.badge-sub {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
 }

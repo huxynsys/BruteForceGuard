@@ -7,10 +7,12 @@ from app.api.events import router as events_router
 from app.api.alerts import router as alerts_router
 from app.api.attack_sessions import router as attack_sessions_router
 from app.api.dashboard import router as dashboard_router  # Phase 6
+from app.api.intelligence import router as intelligence_router  # Phase 7
 from app.db.database import Base, engine
 from app.models.auth_event import AuthEvent
 from app.models.alert import Alert
 from app.models.attack_session import AttackSession
+from app.models.threat_indicator import ThreatIndicator
 
 
 @asynccontextmanager
@@ -49,6 +51,7 @@ app.include_router(events_router)
 app.include_router(alerts_router)
 app.include_router(attack_sessions_router)
 app.include_router(dashboard_router)  # Phase 6
+app.include_router(intelligence_router)  # Phase 7
 
 
 @app.get("/health", tags=["System"])

@@ -12,6 +12,7 @@ from app.core.detection_config import get_service_thresholds
 from app.services.attack_session_service import (
     AttackSessionIntegrationService,
 )
+from app.intelligence.service import IntelligenceService  # Phase 7
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,9 @@ def create_event(
     detection_service = DetectionService(db)
 
     session_integration_service = AttackSessionIntegrationService(db)
+
+    # Phase 7: security-intelligence enrichment (best-effort, never fatal)
+    intelligence_service = IntelligenceService(db)
 
     # 4. Get service-specific detection thresholds
     thresholds = get_service_thresholds(new_event.service)
@@ -119,11 +123,21 @@ def create_event(
                     new_event.id,
                 )
 
-                session_integration_service.process_alert(
+                # Phase 7: enrich alert with risk / intel / MITRE context.
+                intelligence_service.enrich_alert(
+                    alert=alert,
+                    event=new_event,
+                )
+
+                session = session_integration_service.process_alert(
                     event=new_event,
                     alert=alert,
                     detection_type=name,
                 )
+
+                # Phase 7: aggregate intelligence onto the attack session.
+                if session is not None:
+                    intelligence_service.enrich_session(session)
 
         except Exception as e:
             # Detection errors must not prevent event ingestion.

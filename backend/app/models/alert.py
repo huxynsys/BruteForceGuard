@@ -79,6 +79,39 @@ class Alert(Base):
         nullable=True,
     )
 
+    # Phase 7 intelligence enrichment
+    risk_score: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    risk_level: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="informational",
+    )
+
+    risk_factors: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    threat_intelligence: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    source_reputation: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    mitre_context: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

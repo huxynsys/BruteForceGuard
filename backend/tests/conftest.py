@@ -33,6 +33,7 @@ from app.db.database import Base
 import app.models.auth_event  # noqa: F401
 import app.models.alert  # noqa: F401
 import app.models.attack_session  # noqa: F401
+import app.models.threat_indicator  # noqa: F401
 
 
 @compiles(INET, "sqlite")

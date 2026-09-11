@@ -25,3 +25,11 @@ class AlertResponse(BaseModel):
     evidence: dict | None
     status: str
     session_id: int | None
+
+    # Phase 7 intelligence
+    risk_score: int = 0
+    risk_level: str = "informational"
+    risk_factors: list[dict] | None = None
+    threat_intelligence: dict | None = None
+    source_reputation: dict | None = None
+    mitre_context: dict | None = None
