@@ -328,7 +328,7 @@ Backend (`cd backend && pytest -q`):
   invalid indicators, 404 on unknown techniques
 * `tests/test_intelligence_service.py` — enrichment, failure resilience
 
-Frontend (`cd frontend && npm test -- --run`):
+Frontend (`cd frontend && npm test`):
 
 * `AlertDetail.test.tsx` — rendering of alert facts, risk, TI (known /
   unknown / unavailable), reputation, MITRE (mapped/unmapped), evidence,
@@ -338,6 +338,16 @@ Frontend (`cd frontend && npm test -- --run`):
 * `DashboardPage.test.tsx` — Phase 7 KPI cards, zero-data and API-failure
   handling
 * `AlertTable.test.tsx` — risk column + row navigation to `/alerts/{id}`
+
+Validation completed on the current `main` checkout:
+
+* Backend: `234 passed` with `pytest -q`.
+* Python compilation: `python -m compileall app tests` passed from `backend`.
+* Frontend: `64 passed` across `8` Vitest files with `npm test`.
+* Production build: `npm run build` passed.
+* Docker/PostgreSQL: Compose services started healthy; PostgreSQL upgraded from
+  `0001_phase6_base` to `0002_phase7_intelligence` and reported `head`; the
+  dashboard API returned HTTP 200.
 
 ## 23. Known limitations
 

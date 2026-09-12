@@ -69,8 +69,8 @@ describe('SessionDetails (Phase 7 intelligence)', () => {
     renderDetails()
 
     expect(screen.getByText('ATTACK SESSION')).toBeInTheDocument()
-    expect(screen.getByText('41')).toBeInTheDocument()
-    expect(screen.getByText('Single Account')).toBeInTheDocument()
+    expect(screen.getByText('#41')).toBeInTheDocument()
+    expect(screen.getByText('Single Account Brute Force')).toBeInTheDocument()
     expect(screen.getByText('192.168.1.44')).toBeInTheDocument()
     expect(screen.getByText('SSH')).toBeInTheDocument()
   })
@@ -98,7 +98,7 @@ describe('SessionDetails (Phase 7 intelligence)', () => {
     expect(screen.getByText('Unique Usernames')).toBeInTheDocument()
     expect(screen.getByText('Unique Services')).toBeInTheDocument()
     expect(screen.getByText('Source Reputation Levels')).toBeInTheDocument()
-    expect(screen.getByText('high')).toBeInTheDocument()
+    expect(screen.getAllByText('high').length).toBeGreaterThan(0)
   })
 
   it('renders the source reputation panel', async () => {

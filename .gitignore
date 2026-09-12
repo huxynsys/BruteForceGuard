@@ -15,6 +15,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+*_out.txt
+*_output.txt
+vitest_output.txt
 
 # IDE
 .vscode/

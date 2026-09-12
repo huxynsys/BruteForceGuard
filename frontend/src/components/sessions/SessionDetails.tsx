@@ -29,13 +29,8 @@ export default function SessionDetails({
 }) {
   const navigate = useNavigate()
   const active = session.status === 'active'
-
-  // Phase 7 intelligence context (best-effort): reputation for the primary
-  // source IP and MITRE mappings for the session's detection types.  Any
-  // failure leaves the section as "unavailable" without breaking the page.
   const [reputation, setReputation] = useState<ReputationResult | null>(null)
   const [mitre, setMitre] = useState<MitreContext[] | null>(null)
-
   const primaryIp = session.source_ips?.[0]
 
   useEffect(() => {
@@ -66,7 +61,7 @@ export default function SessionDetails({
     mitre === null
       ? null
       : (session.detection_types ?? []).map((type) => {
-          const found = mitre.find((m) => m.detection_type === type)
+          const found = mitre.find((mapping) => mapping.detection_type === type)
           return (
             found ?? {
               detection_type: type,
@@ -129,65 +124,6 @@ export default function SessionDetails({
         </div>
         <RiskFactors factors={session.risk_factors ?? []} />
       </div>
-    </article>
-  )
-}
-
-// __SESSION_DETAILS_MARKER__
-
-
-export default function SessionDetails({
-  session,
-  onClose,
-  closing,
-}: {
-  session: AttackSession
-  onClose: () => void
-  closing: boolean
-}) {
-  const navigate = useNavigate()
-  const active = session.status === 'active'
-
-  return (
-    <article className="neo-card" aria-label={`Attack session ${session.id}`}>
-      <div className="row spread" style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>
-          ATTACK SESSION <span className="mono">#{session.id}</span>
-        </h2>
-        {active && (
-          <button
-            className="neo-button danger"
-            onClick={onClose}
-            disabled={closing}
-          >
-            <XCircle size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-            {closing ? 'Closing...' : 'Close Session'}
-          </button>
-        )}
-      </div>
-
-      <dl className="detail-grid">
-        <dt>Status</dt>
-        <dd>
-          <span
-            className={`badge ${active ? 'badge-success' : 'badge-muted'}`}
-          >
-            {session.status}
-          </span>
-        </dd>
-        <dt>Severity</dt>
-        <dd>
-          <SeverityBadge severity={session.severity} />
-        </dd>
-        <dt>Session Type</dt>
-        <dd>{detectionLabel(session.session_type)}</dd>
-        <dt>Events</dt>
-        <dd className="mono">{session.event_count}</dd>
-        <dt>Started</dt>
-        <dd className="mono">{fullTime(session.started_at)}</dd>
-        <dt>Last Seen</dt>
-        <dd className="mono">{fullTime(session.last_seen_at)}</dd>
-      </dl>
 
       {profile && (
         <>

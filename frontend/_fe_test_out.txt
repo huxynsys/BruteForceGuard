@@ -1,3 +1,0 @@
-
-[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90mC:/Users/HUXYN/Desktop/BruteForceGuard/frontend[39m
-

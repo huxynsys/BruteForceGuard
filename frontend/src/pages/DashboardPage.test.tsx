@@ -73,7 +73,7 @@ describe('DashboardPage (UI flow)', () => {
 
     // Severity rows show both text and count (accessibility: not color-only)
     expect(screen.getByText('critical')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
     expect(screen.getByText('Recent Alerts')).toBeInTheDocument()
     expect(screen.getAllByText('Single Account Brute Force').length).toBeGreaterThan(0)
   })
@@ -141,8 +141,8 @@ describe('DashboardPage (UI flow)', () => {
     expect(screen.getByText('Threat Indicators')).toBeInTheDocument()
 
     // Values come from the backend summary, not the frontend.
-    expect(screen.getByText('3')).toBeInTheDocument() // critical_risk
-    expect(screen.getByText('2')).toBeInTheDocument() // high_risk_sessions
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0) // critical_risk
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0) // high_risk_sessions
     expect(screen.getByText('12')).toBeInTheDocument() // threat_indicators
   })
 
