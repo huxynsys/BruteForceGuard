@@ -1,0 +1,8 @@
+npm notice run frontend@0.0.0 test
+npm notice run vitest run --run ; echo EXIT_CODE=$LASTEXITCODE
+[31mNo test files found, exiting with code 1
+[39m
+[2mfilter: [22m[33m;[2m, [22mecho[2m, [22mEXIT_CODE=$LASTEXITCODE[39m
+[2minclude: [22m[33m**/*.{test,spec}.?(c|m)[jt]s?(x)[39m
+[2mexclude:  [22m[33m**/node_modules/**[2m, [22m**/.git/**[39m
+

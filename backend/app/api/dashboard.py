@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.models.alert import Alert
 from app.models.attack_session import AttackSession
 from app.models.auth_event import AuthEvent
+from app.models.threat_indicator import ThreatIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,25 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         DETECTION_KEYS.get(a.alert_type, a.alert_type) for a in alerts
     )
 
+    # Phase 7 intelligence KPIs - derived from real backend data only.
+    critical_risk = sum(
+        1 for a in alerts if (a.risk_level or "").lower() == "critical"
+    )
+    high_risk_alerts = sum(
+        1
+        for a in alerts
+        if (a.risk_level or "").lower() in ("high", "critical")
+    )
+    high_risk_sessions = sum(
+        1
+        for s in active_sessions
+        if (s.risk_level or "").lower() in ("high", "critical")
+    )
+    indicators = list(db.scalars(select(ThreatIndicator)))
+    known_malicious_indicators = sum(
+        1 for i in indicators if i.active
+    )
+
     return {
         "total_events": len(events),
         "total_alerts": len(alerts),
@@ -75,6 +95,12 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
             key: detection_counts.get(key, 0)
             for key in DETECTION_KEYS.values()
         },
+        # Phase 7 intelligence KPIs
+        "critical_risk": critical_risk,
+        "high_risk_alerts": high_risk_alerts,
+        "high_risk_sessions": high_risk_sessions,
+        "known_malicious_indicators": known_malicious_indicators,
+        "threat_indicators": len(indicators),
     }
 
 

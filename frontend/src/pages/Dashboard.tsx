@@ -256,6 +256,13 @@ export default function Dashboard({
         <StatCard label="Unique Source IPs" value={summary.unique_source_ips} sub="Across protected services" />
       </div>
 
+      <div className="kpi-grid">
+        <StatCard label="Critical Risk" value={summary.critical_risk} sub="Alerts at critical risk level" />
+        <StatCard label="High-Risk Sessions" value={summary.high_risk_sessions} sub="Active sessions at high risk" />
+        <StatCard label="Known Malicious Indicators" value={summary.known_malicious_indicators} sub="Active local TI matches" />
+        <StatCard label="Threat Indicators" value={summary.threat_indicators} sub="Local intelligence store" />
+      </div>
+
       <div className="dashboard-grid dashboard-grid--overview">
         {analytics && <ActivityPanel analytics={analytics} />}
         <SeverityPanel summary={summary} />

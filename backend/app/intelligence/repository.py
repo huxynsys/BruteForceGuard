@@ -10,6 +10,10 @@ from app.intelligence.schemas import ThreatIndicatorCreate
 from app.models.threat_indicator import ThreatIndicator
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def _naive_or_aware(value: datetime | None, fallback: datetime) -> datetime:
     if value is None:
         return fallback
@@ -83,10 +87,20 @@ class ThreatIndicatorRepository:
         return True
 
     def record_observation(self, indicator_id: int) -> None:
-        """Update last_seen when an indicator is observed in the wild."""
+        """Update the first/last-seen lifecycle when an indicator is observed.
+
+        First observation  -> first_seen = last_seen = now
+        Subsequent         -> first_seen unchanged, last_seen = now
+        """
         indicator = self.db.get(ThreatIndicator, indicator_id)
         if not indicator:
             return
-        now = datetime.now(timezone.utc)
-        indicator.last_seen = _naive_or_aware(indicator.last_seen, now)
+        now = _now()
+        if indicator.last_seen is None:
+            # Never observed before: this is the first observation.
+            indicator.first_seen = now
+            indicator.last_seen = now
+        else:
+            # Already observed: keep first_seen, refresh last_seen only.
+            indicator.last_seen = now
         self.db.commit()

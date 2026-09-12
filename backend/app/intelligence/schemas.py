@@ -1,9 +1,11 @@
 """Pydantic schemas for the Phase 7 intelligence module."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.intelligence.validation import validate_indicator
 
 IndicatorType = Literal["ipv4", "ipv6", "domain", "username"]
 
@@ -63,6 +65,19 @@ class ThreatIndicatorCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     active: bool = True
 
+    @model_validator(mode="after")
+    def _check_indicator_format(self) -> Self:
+        """Reject indicator values that do not match their claimed type.
+
+        e.g. {"indicator": "hello", "indicator_type": "ipv4"} -> 422.
+        """
+        if not validate_indicator(self.indicator, self.indicator_type):
+            raise ValueError(
+                f"indicator {self.indicator!r} is not a valid "
+                f"{self.indicator_type} value"
+            )
+        return self
+
 
 class ThreatIndicatorResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -75,5 +90,7 @@ class ThreatIndicatorResponse(BaseModel):
     source: str
     tags: list | None
     active: bool
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
     created_at: datetime
     updated_at: datetime

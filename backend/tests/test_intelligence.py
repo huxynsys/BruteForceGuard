@@ -271,22 +271,171 @@ def test_record_observation_updates_last_seen(
     assert refreshed is not None
     assert refreshed.last_seen is not None
 
+
+def test_first_observation_sets_first_and_last_seen(
+    repository: ThreatIndicatorRepository,
+    sample_indicator: ThreatIndicator,
+):
+    """First observation: first_seen and last_seen are both set (Part 3)."""
+    assert sample_indicator.first_seen is None
+    assert sample_indicator.last_seen is None
+
+    repository.record_observation(sample_indicator.id)
+
+    refreshed = repository.get(sample_indicator.id)
+    assert refreshed is not None
+    assert refreshed.first_seen is not None
+    assert refreshed.last_seen is not None
+    assert refreshed.first_seen == refreshed.last_seen
+
+
+def test_second_observation_preserves_first_seen(
+    repository: ThreatIndicatorRepository,
+    sample_indicator: ThreatIndicator,
+):
+    """Subsequent observations keep first_seen and only move last_seen."""
+    from datetime import datetime, timedelta, timezone
+
+    # Simulate an initial observation at a fixed point in the past.
+    # Naive UTC is used because SQLite stores/returns naive datetimes.
+    original_first_seen = (
+        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
+    )
+    original_last_seen = original_first_seen + timedelta(minutes=5)
+    sample_indicator.first_seen = original_first_seen
+    sample_indicator.last_seen = original_last_seen
+    repository.db.commit()
+
+    repository.record_observation(sample_indicator.id)
+
+    refreshed = repository.get(sample_indicator.id)
+    assert refreshed is not None
+    # first_seen is NOT reset by later observations.
+    assert refreshed.first_seen == original_first_seen
+    # last_seen moves forward to the new observation time.
+    assert refreshed.last_seen is not None
+    assert refreshed.last_seen > original_last_seen
+
+
+def test_provider_lookup_records_observation_lifecycle(
+    repository: ThreatIndicatorRepository,
+    provider: LocalThreatIntelProvider,
+    sample_indicator: ThreatIndicator,
+):
+    """Observations via the intelligence lookup path follow the lifecycle."""
+    from datetime import timedelta
+
+    first = provider.lookup_ip("203.0.113.50")
+    assert first.known is True
+
+    after_first = repository.get(sample_indicator.id)
+    assert after_first is not None
+    assert after_first.first_seen is not None
+    assert after_first.last_seen is not None
+
+    # Backdate to prove the second lookup does not reset first_seen.
+    backdated = (after_first.last_seen or after_first.first_seen) - timedelta(
+        hours=1
+    )
+    after_first.first_seen = backdated
+    after_first.last_seen = backdated
+    repository.db.commit()
+
+    provider.lookup_ip("203.0.113.50")
+
+    refreshed = repository.get(sample_indicator.id)
+    assert refreshed is not None
+    assert refreshed.first_seen == backdated
+    assert refreshed.last_seen > backdated
+
 # ---------------------------------------------------------------------------
-# 7.5 Indicator types are validated
+# 7.5 Indicator types are validated (Part 2 - format validation)
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "indicator_type",
-    ["ipv4", "ipv6", "domain", "username"],
+    ("indicator_type", "indicator"),
+    [
+        ("ipv4", "203.0.113.50"),
+        ("ipv6", "2001:db8::1"),
+        ("domain", "malicious.example.com"),
+        ("username", "attacker_user"),
+    ],
 )
-def test_valid_indicator_types(repository: ThreatIndicatorRepository, indicator_type: str):
+def test_valid_indicator_types(
+    repository: ThreatIndicatorRepository,
+    indicator_type: str,
+    indicator: str,
+):
     created = repository.create(
         ThreatIndicatorCreate(
-            indicator="test-value",
+            indicator=indicator,
             indicator_type=indicator_type,
             confidence=50,
         )
     )
     assert created.indicator_type == indicator_type
+    assert created.indicator == indicator
+
+
+@pytest.mark.parametrize(
+    ("indicator_type", "indicator"),
+    [
+        ("ipv4", "hello"),           # not an IPv4 address
+        ("ipv4", "203.0.113.999"),   # out-of-range octet
+        ("ipv4", "2001:db8::1"),     # IPv6 value claimed as ipv4
+        ("ipv6", "hello"),           # not an IPv6 address
+        ("ipv6", "203.0.113.50"),    # IPv4 value claimed as ipv6
+        ("domain", "hello"),         # no TLD label
+        ("domain", "-bad.example.com"),
+        ("domain", "bad..example.com"),
+        ("username", "has space"),   # whitespace makes matching meaningless
+        ("username", ""),
+    ],
+)
+def test_invalid_indicator_format_rejected(
+    repository: ThreatIndicatorRepository,
+    indicator_type: str,
+    indicator: str,
+):
+    """Invalid indicator/indicator_type combinations are rejected."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ThreatIndicatorCreate(
+            indicator=indicator,
+            indicator_type=indicator_type,
+            confidence=50,
+        )
+
+
+@pytest.mark.parametrize("confidence", [0, 101, -5])
+def test_invalid_confidence_rejected(
+    repository: ThreatIndicatorRepository,
+    confidence: int,
+):
+    """Confidence outside 1-100 is rejected (boundary validation)."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ThreatIndicatorCreate(
+            indicator="203.0.113.60",
+            indicator_type="ipv4",
+            confidence=confidence,
+        )
+
+
+@pytest.mark.parametrize("confidence", [1, 100])
+def test_confidence_boundaries_accepted(
+    repository: ThreatIndicatorRepository,
+    confidence: int,
+):
+    created = repository.create(
+        ThreatIndicatorCreate(
+            indicator="203.0.113.61",
+            indicator_type="ipv4",
+            confidence=confidence,
+        )
+    )
+    assert created.confidence == confidence
 
 
 def test_invalid_indicator_type_rejected(repository: ThreatIndicatorRepository):

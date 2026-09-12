@@ -10,6 +10,43 @@ export interface AuthEvent {
   created_at: string
 }
 
+export interface AlertRiskFactor {
+  factor: string
+  value: number
+  reason: string
+}
+
+/** Phase 7 threat-intelligence payload persisted on an alert. */
+export interface AlertThreatIntel {
+  known: boolean
+  confidence: number | null
+  categories: string[] | null
+  threat_type: string | null
+  source: string | null
+}
+
+/** Phase 7 source-reputation payload persisted on an alert. */
+export interface AlertReputation {
+  internal_reputation_score: number
+  internal_reputation_level: string
+  failure_rate: number | null
+  unique_usernames: number
+  unique_services: number
+  attack_sessions: number
+  alert_count: number
+  first_seen?: string | null
+  last_seen?: string | null
+}
+
+/** Phase 7 MITRE ATT&CK context persisted on an alert. */
+export interface AlertMitreContext {
+  technique_id: string
+  technique_name: string
+  tactic: string
+  description: string
+  is_mapped: boolean
+}
+
 export interface Alert {
   id: number
   alert_type: string
@@ -24,6 +61,22 @@ export interface Alert {
   status: string
   evidence: Record<string, unknown>
   created_at: string
+  // Phase 7 intelligence enrichment
+  risk_score: number
+  risk_level: string
+  risk_factors: AlertRiskFactor[] | null
+  threat_intelligence: AlertThreatIntel | null
+  source_reputation: AlertReputation | null
+  mitre_context: AlertMitreContext | null
+}
+
+/** Phase 7 behavioral profile persisted on an attack session. */
+export interface BehavioralProfile {
+  unique_source_ips: number
+  unique_usernames: number
+  unique_services: number
+  detection_types: string[]
+  source_reputation_levels: string[]
 }
 
 export interface AttackSession {
@@ -39,6 +92,11 @@ export interface AttackSession {
   started_at: string
   last_seen_at: string
   created_at: string
+  // Phase 7 intelligence enrichment
+  risk_score: number
+  risk_level: string
+  risk_factors: AlertRiskFactor[] | null
+  behavioral_profile: BehavioralProfile | null
 }
 
 export interface DashboardSummary {
@@ -54,6 +112,12 @@ export interface DashboardSummary {
     low: number
   }
   detections: Record<string, number>
+  // Phase 7 intelligence KPIs (backend-computed)
+  critical_risk: number
+  high_risk_alerts: number
+  high_risk_sessions: number
+  known_malicious_indicators: number
+  threat_indicators: number
 }
 
 export interface ActivityBucket {

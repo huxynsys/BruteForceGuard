@@ -100,7 +100,15 @@ class IntelligenceService:
         alert: Alert,
         *,
         reputation_level: str | None = None,
+        ti: ThreatIntelLookup | None = None,
+        username_ti: ThreatIntelLookup | None = None,
     ) -> RiskResultSchema:
+        """Risk-score an alert.
+
+        ``ti`` / ``username_ti`` may be passed in from an already-built
+        enrichment context to avoid repeating threat-intelligence lookups
+        (Part 4).  When omitted they are resolved here for direct callers.
+        """
         evidence = alert.evidence or {}
 
         failure_count = evidence.get("failure_count") or 0
@@ -121,11 +129,14 @@ class IntelligenceService:
         if evidence.get("distinct_services"):
             distinct_services = int(evidence["distinct_services"])
 
-        ti = self.lookup_ip(str(alert.source_ip)) if alert.source_ip else None
+        if ti is None:
+            ti = self.lookup_ip(str(alert.source_ip)) if alert.source_ip else None
 
-        username_ti = (
-            self.lookup_username(alert.username) if alert.username else None
-        )
+        if username_ti is None:
+            username_ti = (
+                self.lookup_username(alert.username) if alert.username else None
+            )
+
         ti_known = bool(ti and ti.known) or bool(username_ti and username_ti.known)
         ti_confidence = (
             ti.confidence
@@ -160,16 +171,23 @@ class IntelligenceService:
         """Compute and persist intelligence context on an alert (7.12)."""
         try:
             reputation = self.get_reputation(str(alert.source_ip))
+            # Resolve threat-intelligence once and reuse it for both risk
+            # scoring and the persisted threat_intelligence field (Part 4),
+            # avoiding repeated identical lookups during one enrichment.
+            ti = self.lookup_ip(str(alert.source_ip)) if alert.source_ip else None
+            username_ti = (
+                self.lookup_username(alert.username) if alert.username else None
+            )
             risk = self.score_alert(
                 alert,
                 reputation_level=(
                     reputation.internal_reputation_level
                     if reputation else None
                 ),
+                ti=ti,
+                username_ti=username_ti,
             )
             mitre = self.get_mitre(alert.alert_type)
-
-            ti = self.lookup_ip(str(alert.source_ip)) if alert.source_ip else None
 
             alert.risk_score = risk.risk_score
             alert.risk_level = risk.risk_level

@@ -128,4 +128,42 @@ describe('DashboardPage (UI flow)', () => {
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it('renders Phase 7 intelligence KPI cards from the summary endpoint', async () => {
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('Critical Risk')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('High-Risk Sessions')).toBeInTheDocument()
+    expect(screen.getByText('Known Malicious Indicators')).toBeInTheDocument()
+    expect(screen.getByText('Threat Indicators')).toBeInTheDocument()
+
+    // Values come from the backend summary, not the frontend.
+    expect(screen.getByText('3')).toBeInTheDocument() // critical_risk
+    expect(screen.getByText('2')).toBeInTheDocument() // high_risk_sessions
+    expect(screen.getByText('12')).toBeInTheDocument() // threat_indicators
+  })
+
+  it('handles zero intelligence data without fake metrics', async () => {
+    mocked.fetchSummary.mockResolvedValue({
+      ...summaryFixture,
+      critical_risk: 0,
+      high_risk_alerts: 0,
+      high_risk_sessions: 0,
+      known_malicious_indicators: 0,
+      threat_indicators: 0,
+    })
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('Critical Risk')).toBeInTheDocument()
+    })
+
+    // Zero is displayed as the real backend value - nothing is fabricated.
+    const zeros = screen.getAllByText('0')
+    expect(zeros.length).toBeGreaterThanOrEqual(4)
+  })
 })

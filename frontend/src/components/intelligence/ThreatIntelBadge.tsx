@@ -22,8 +22,8 @@ export default function ThreatIntelBadge({ intel, loading = false }: ThreatIntel
 
   if (!intel) {
     return (
-      <span className="badge badge-muted" aria-label="No threat intelligence data">
-        Unknown
+      <span className="badge badge-muted" aria-label="Threat intelligence unavailable">
+        TI unavailable
       </span>
     )
   }
@@ -40,8 +40,8 @@ export default function ThreatIntelBadge({ intel, loading = false }: ThreatIntel
   }
 
   return (
-    <span className="badge badge-success" aria-label="No threat intelligence match">
-      Clean
+    <span className="badge badge-muted" aria-label="Indicator not present in threat intelligence">
+      No match
     </span>
   )
 }

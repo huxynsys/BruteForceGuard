@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,3 +24,15 @@ def list_alerts(
     )
 
     return list(db.scalars(statement))
+
+
+@router.get("/{alert_id}", response_model=AlertResponse)
+def get_alert(
+    alert_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a single alert by ID (used by the alert investigation page)."""
+    alert = db.get(Alert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return alert

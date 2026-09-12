@@ -5,7 +5,7 @@ existing authentication events, alerts and attack sessions, and maps it
 to an internal reputation score 0-100 with an explicit level.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -85,7 +85,13 @@ class ReputationService:
         }
 
     def reputation_score(self, profile: dict) -> int:
-        """Deterministic internal-reputation score (0-100)."""
+        """Deterministic internal-reputation score (0-100).
+
+        Time-independent on purpose (Part 14): the score is a pure function
+        of stored historical behaviour (failures, successes, usernames,
+        services, alerts, attack sessions) so it is fully reproducible and
+        never flaky.
+        """
         score = 0
 
         score += min(20, profile["alert_count"] * 4)
@@ -96,14 +102,6 @@ class ReputationService:
         failure_rate = profile.get("failure_rate")
         if failure_rate is not None:
             score += round(min(20, failure_rate * 20))
-
-        last_seen = profile.get("last_seen")
-        if last_seen is not None:
-            recency = datetime.now(timezone.utc) - last_seen
-            if recency <= timedelta(hours=1):
-                score += 10
-            elif recency <= timedelta(hours=24):
-                score += 5
 
         return max(0, min(100, score))
 

@@ -16,6 +16,70 @@ export const alertFixture: Alert = {
   status: 'open',
   evidence: { failure_count: 10 },
   created_at: '2026-09-08T10:42:00Z',
+  // Phase 7 intelligence
+  risk_score: 72,
+  risk_level: 'high',
+  risk_factors: [
+    { factor: 'base_detection', value: 24, reason: 'High severity detection' },
+    { factor: 'confidence', value: 13, reason: 'Detection confidence 65%' },
+    {
+      factor: 'threat_intelligence',
+      value: 15,
+      reason: 'Known indicator from local (confidence 90%)',
+    },
+  ],
+  threat_intelligence: {
+    known: true,
+    confidence: 90,
+    categories: ['brute_force'],
+    threat_type: 'brute_force',
+    source: 'local',
+  },
+  source_reputation: {
+    internal_reputation_score: 78,
+    internal_reputation_level: 'high',
+    failure_rate: 1.0,
+    unique_usernames: 2,
+    unique_services: 1,
+    attack_sessions: 3,
+    alert_count: 4,
+    first_seen: '2026-09-08T10:31:22Z',
+    last_seen: '2026-09-08T10:42:00Z',
+  },
+  mitre_context: {
+    technique_id: 'T1110.001',
+    technique_name: 'Password Guessing',
+    tactic: 'Credential Access',
+    description: 'Password guessing against a single account.',
+    is_mapped: true,
+  },
+}
+
+/** Alert where threat intelligence enrichment is entirely unavailable. */
+export const noIntelAlertFixture: Alert = {
+  ...alertFixture,
+  id: 3,
+  risk_score: 0,
+  risk_level: 'informational',
+  risk_factors: null,
+  threat_intelligence: null,
+  source_reputation: null,
+  mitre_context: null,
+}
+
+/** Alert with a known-malicious indicator match. */
+export const maliciousAlertFixture: Alert = {
+  ...alertFixture,
+  id: 4,
+  risk_score: 88,
+  risk_level: 'critical',
+  threat_intelligence: {
+    known: true,
+    confidence: 95,
+    categories: ['brute_force', 'scanner'],
+    threat_type: 'brute_force',
+    source: 'local',
+  },
 }
 
 export const criticalAlertFixture: Alert = {
@@ -41,6 +105,20 @@ export const sessionFixture: AttackSession = {
   started_at: '2026-09-08T10:31:22Z',
   last_seen_at: '2026-09-08T10:34:18Z',
   created_at: '2026-09-08T10:31:22Z',
+  // Phase 7 intelligence
+  risk_score: 64,
+  risk_level: 'medium',
+  risk_factors: [
+    { factor: 'base_detection', value: 24, reason: 'High severity session' },
+    { factor: 'behavior', value: 8, reason: '6 failed attempts against 1 account' },
+  ],
+  behavioral_profile: {
+    unique_source_ips: 1,
+    unique_usernames: 1,
+    unique_services: 1,
+    detection_types: ['single_account', 'failed_success'],
+    source_reputation_levels: ['high'],
+  },
 }
 
 export const closedSessionFixture: AttackSession = {
@@ -77,6 +155,12 @@ export const summaryFixture: DashboardSummary = {
     credential_stuffing: 5,
     low_and_slow: 3,
   },
+  // Phase 7 intelligence KPIs
+  critical_risk: 3,
+  high_risk_alerts: 10,
+  high_risk_sessions: 2,
+  known_malicious_indicators: 5,
+  threat_indicators: 12,
 }
 
 export const analyticsFixture: DashboardAnalytics = {

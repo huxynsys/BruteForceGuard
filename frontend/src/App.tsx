@@ -3,6 +3,7 @@ import Layout from './components/layout/Layout'
 import DashboardPage from './pages/DashboardPage'
 import Events from './pages/Events'
 import Alerts from './pages/Alerts'
+import AlertDetailPage from './pages/AlertDetail'
 import Sessions from './pages/Sessions'
 import SessionDetailPage from './pages/SessionDetail'
 import Analytics from './pages/Analytics'
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/events" element={<Events />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/alerts/:id" element={<AlertDetailPage />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:id" element={<SessionDetailPage />} />
           <Route path="/analytics" element={<Analytics />} />
