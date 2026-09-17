@@ -19,6 +19,13 @@ htmlcov/
 *_output.txt
 vitest_output.txt
 
+# Local scratch / debug artifacts (never commit these)
+_*.txt
+_*.bat
+_*.ps1
+git_status.txt
+coverage/
+
 # IDE
 .vscode/
 .idea/

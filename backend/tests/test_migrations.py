@@ -213,3 +213,72 @@ def test_stamp_procedure_for_create_all_database(migrated_db_url):
         engine.dispose()
 
 
+# ---------------------------------------------------------------------------
+# Container entrypoint baseline resolution (Phase 8 - Docker reliability)
+# ---------------------------------------------------------------------------
+from alembic_baseline import resolve_action  # noqa: E402
+
+
+def test_baseline_action_fresh_database(migrated_db_url):
+    """A fresh (empty) database upgrades through the migrations."""
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        assert resolve_action(set(sa.inspect(engine).get_table_names())) == "upgrade"
+    finally:
+        engine.dispose()
+
+
+def test_baseline_action_phase6_create_all_database(migrated_db_url):
+    """A Phase 6 create_all DB stamps to 0001 and then upgrades."""
+    _upgrade(migrated_db_url, "0001_phase6_base")
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(sa.text("DROP TABLE alembic_version"))
+        tables = set(sa.inspect(engine).get_table_names())
+        assert resolve_action(tables) == "stamp-0001"
+    finally:
+        engine.dispose()
+
+
+def test_baseline_action_phase7_create_all_database(migrated_db_url):
+    """A Phase 7 create_all DB is already head-consistent: stamp head."""
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        # create_all never creates alembic_version, so the resulting DB has
+        # all application tables but no alembic bookkeeping.
+        Base.metadata.create_all(bind=engine)
+        tables = set(sa.inspect(engine).get_table_names())
+        assert resolve_action(tables) == "stamp-head"
+    finally:
+        engine.dispose()
+
+
+def test_baseline_action_stale_0001_with_current_schema(migrated_db_url):
+    """A DB stamped 0001 whose schema is already at Phase 7 (the live-volume
+    regression observed in Phase 8) is re-stamped to head, not upgraded."""
+    _upgrade(migrated_db_url, "0001_phase6_base")
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        # Simulate the broken live state: Phase 7 columns already exist via
+        # create_all, while alembic_version still says 0001.
+        Base.metadata.create_all(bind=engine)
+        with engine.begin() as conn:
+            conn.execute(sa.text("UPDATE alembic_version SET version_num = '0001_phase6_base'"))
+        tables = set(sa.inspect(engine).get_table_names())
+        assert resolve_action(tables) == "stamp-head"
+    finally:
+        engine.dispose()
+
+
+def test_baseline_action_alembic_managed_phase6_needs_upgrade(migrated_db_url):
+    """An Alembic-managed Phase 6 DB without Phase 7 tables upgrades."""
+    _upgrade(migrated_db_url, "0001_phase6_base")
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        tables = set(sa.inspect(engine).get_table_names())
+        assert resolve_action(tables) == "upgrade"
+    finally:
+        engine.dispose()
+
+

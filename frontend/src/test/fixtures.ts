@@ -20,7 +20,7 @@ export const alertFixture: Alert = {
   risk_score: 72,
   risk_level: 'high',
   risk_factors: [
-    { factor: 'base_detection', value: 24, reason: 'High severity detection' },
+    { factor: 'detection_severity', value: 24, reason: 'High severity detection' },
     { factor: 'confidence', value: 13, reason: 'Detection confidence 65%' },
     {
       factor: 'threat_intelligence',
@@ -109,8 +109,8 @@ export const sessionFixture: AttackSession = {
   risk_score: 64,
   risk_level: 'medium',
   risk_factors: [
-    { factor: 'base_detection', value: 24, reason: 'High severity session' },
-    { factor: 'behavior', value: 8, reason: '6 failed attempts against 1 account' },
+    { factor: 'detection_severity', value: 24, reason: 'High severity session' },
+    { factor: 'attack_frequency', value: 8, reason: '6 failed attempts against 1 account' },
   ],
   behavioral_profile: {
     unique_source_ips: 1,

@@ -15,12 +15,15 @@ EXPOSE 8000
 
 # Apply database migrations before starting the API so both a fresh
 # PostgreSQL volume and an existing Phase 6 volume reach the Phase 7 schema.
-# An existing create_all-based Phase 6 database is stamped to the baseline
-# revision first (see docs/phase-7-security-intelligence.md).
+# An existing create_all-based database that is already consistent with the
+# head revision is stamped to head instead of upgraded (see
+# alembic_baseline.py and docs/phase-7-security-intelligence.md).
 CMD ["sh", "-c", "\
-  if alembic current 2>/dev/null | grep -q .; then \
-    alembic upgrade head; \
-  else \
-    alembic stamp 0001_phase6_base && alembic upgrade head; \
-  fi; \
+  ACTION=$(python alembic_baseline.py); \
+  echo \"[entrypoint] migration action: $ACTION\"; \
+  case \"$ACTION\" in \
+    stamp-head) alembic stamp head;; \
+    stamp-0001) alembic stamp 0001_phase6_base && alembic upgrade head;; \
+    *) alembic upgrade head;; \
+  esac; \
   exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

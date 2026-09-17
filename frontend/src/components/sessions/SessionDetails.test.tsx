@@ -70,7 +70,13 @@ describe('SessionDetails (Phase 7 intelligence)', () => {
 
     expect(screen.getByText('ATTACK SESSION')).toBeInTheDocument()
     expect(screen.getByText('#41')).toBeInTheDocument()
-    expect(screen.getByText('Single Account Brute Force')).toBeInTheDocument()
+    // Phase 7 added a "Detection Types" chip list, so this label is now rendered
+    // twice: once as the Session Type value and once as a detection chip.
+    // Scope the assertion to the Session Type detail row to keep it unambiguous.
+    const sessionTypeTerm = screen.getByText('Session Type')
+    expect(sessionTypeTerm.nextElementSibling).toHaveTextContent(
+      'Single Account Brute Force',
+    )
     expect(screen.getByText('192.168.1.44')).toBeInTheDocument()
     expect(screen.getByText('SSH')).toBeInTheDocument()
   })

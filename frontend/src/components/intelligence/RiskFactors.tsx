@@ -11,10 +11,13 @@ interface RiskFactorsProps {
   factors: RiskFactor[]
 }
 
+// Factor keys emitted by the backend risk scorer (app/intelligence/risk.py).
+// Keep these in sync: `detection_severity` = base detection severity,
+// `attack_frequency` = behavioural context.
 const FACTOR_LABELS: Record<string, string> = {
-  base_detection: 'Detection Severity',
+  detection_severity: 'Detection Severity',
   confidence: 'Confidence',
-  behavior: 'Behavior',
+  attack_frequency: 'Behavior',
   threat_intelligence: 'Threat Intelligence',
   target_sensitivity: 'Target Sensitivity',
 }

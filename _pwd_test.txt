@@ -1,3 +1,0 @@
-C:\Users\HUXYN\Desktop\BruteForceGuard
-C:\Users\HUXYN\AppData\Local\Programs\Python\Python312\python.exe
-Python 3.12.10
