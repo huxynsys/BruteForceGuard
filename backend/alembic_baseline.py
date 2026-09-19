@@ -1,10 +1,12 @@
 """Resolve the correct Alembic action for the database at startup.
 
-BruteForceGuard's application startup calls ``Base.metadata.create_all``, so
-any database the current application image has touched is already consistent
-with the models (i.e. with the migration head).  Alembic is therefore used as
-bookkeeping, and the container entrypoint only needs to decide *which*
-bookkeeping action to take:
+Historically BruteForceGuard's application startup called
+``Base.metadata.create_all``, so databases created by older images are
+already consistent with the models (i.e. with the migration head).  Phase 9.2
+removed that startup behaviour — Alembic is the authoritative migration
+mechanism now — but those legacy ``create_all`` databases still exist and
+must keep starting cleanly, so the container entrypoint still has to decide
+*which* Alembic bookkeeping action to take:
 
 * ``upgrade``   - run ``alembic upgrade head`` (fresh database, or an
                   Alembic-managed database that still needs migrations)

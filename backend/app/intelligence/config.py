@@ -5,10 +5,12 @@ Everything that controls risk scoring, reputation thresholds, privileged
 accounts, service sensitivity and threat-intelligence behaviour lives here
 rather than being scattered across detectors or services.
 
-Runtime configurability (Part 5)
---------------------------------
-The important risk parameters can be overridden through environment
-variables so a deployment can tune behaviour without code changes:
+Runtime configurability (Part 5, extended by Phase 9.1)
+-------------------------------------------------------
+The important risk parameters are declared centrally in
+``app.core.config.Settings`` and can therefore be overridden through
+environment variables, so a deployment can tune behaviour without code
+changes:
 
     RISK_WEIGHTS             e.g. "base_detection:40,confidence:20,behavior:15,threat_intelligence:15,target_sensitivity:10"
     RISK_LEVEL_BOUNDARIES    e.g. "25,50,70,85"  (start of low/medium/high/critical)
@@ -24,6 +26,27 @@ canonical Phase 7 values, so existing behaviour/tests are unchanged.
 
 import os
 from typing import List, Tuple
+
+from app.core.config import settings
+
+
+def _configured_value(
+    name: str,
+    value: str,
+    *,
+    default: str | None = None,
+) -> str | None:
+    """Resolve a tunable from the central settings, then the environment.
+
+    ``app.core.config`` is the documented single source of truth.  The live
+    environment lookup keeps dynamically re-configured deployments (and
+    Phase 7's environment-driven configuration tests) working exactly as
+    before, when the central settings object was created before the variable
+    was set.
+    """
+    if value and value.strip():
+        return value
+    return os.getenv(name, default)
 
 # --------------------------------------------------------------------------
 # Risk scoring weights (frame for 7.2: sum must be 100)
@@ -61,7 +84,7 @@ def validate_risk_weights(weights: dict[str, int]) -> dict[str, int]:
 
 
 def _load_risk_weights() -> dict[str, int]:
-    raw = os.getenv("RISK_WEIGHTS")
+    raw = _configured_value("RISK_WEIGHTS", settings.risk_weights)
     if not raw:
         return dict(_DEFAULT_RISK_WEIGHTS)
     parsed: dict[str, int] = {}
@@ -100,7 +123,10 @@ def validate_risk_level_boundaries(boundaries: List[int]) -> List[int]:
 
 
 def _load_risk_levels() -> List[RiskLevelRange]:
-    raw = os.getenv("RISK_LEVEL_BOUNDARIES")
+    raw = _configured_value(
+        "RISK_LEVEL_BOUNDARIES",
+        settings.risk_level_boundaries,
+    )
     boundaries = _DEFAULT_RISK_LEVEL_BOUNDARIES
     if raw:
         boundaries = validate_risk_level_boundaries(
@@ -153,8 +179,17 @@ def validate_risk_config() -> None:
 # --------------------------------------------------------------------------
 # Privileged accounts (7.14) - configurable, case-insensitive
 # --------------------------------------------------------------------------
+_DEFAULT_PRIVILEGED_USERS = "root,administrator,admin"
+
+
 def _privileged_users() -> set[str]:
-    raw = os.getenv("PRIVILEGED_USERS", "root,administrator,admin")
+    raw = _configured_value(
+        "PRIVILEGED_USERS",
+        settings.privileged_users,
+        default=_DEFAULT_PRIVILEGED_USERS,
+    )
+    if not raw:
+        raw = _DEFAULT_PRIVILEGED_USERS
     return {user.strip().lower() for user in raw.split(",") if user.strip()}
 
 
@@ -190,7 +225,10 @@ VALID_SENSITIVITY_LEVELS = frozenset({"high", "medium", "low", "unknown"})
 
 
 def _load_service_sensitivity() -> dict[str, str]:
-    raw = os.getenv("SERVICE_SENSITIVITY")
+    raw = _configured_value(
+        "SERVICE_SENSITIVITY",
+        settings.service_sensitivity,
+    )
     if not raw:
         return dict(_DEFAULT_SERVICE_SENSITIVITY)
     parsed: dict[str, str] = {}
@@ -250,7 +288,10 @@ def validate_reputation_boundaries(boundaries: List[int]) -> List[int]:
 
 
 def _load_reputation_levels() -> List[ReputationLevelRange]:
-    raw = os.getenv("REPUTATION_LEVEL_BOUNDARIES")
+    raw = _configured_value(
+        "REPUTATION_LEVEL_BOUNDARIES",
+        settings.reputation_level_boundaries,
+    )
     boundaries = _DEFAULT_REPUTATION_BOUNDARIES
     if raw:
         boundaries = validate_reputation_boundaries(

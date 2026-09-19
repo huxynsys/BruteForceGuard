@@ -1,0 +1,24 @@
+# The frontend build only needs source, config and lockfile — never the
+# installed dependencies, build output or local artifacts.
+
+node_modules/
+dist/
+coverage/
+
+# Version control and editors
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Local environment files (VITE_* values are provided at build time)
+.env
+.env.*
+!.env.example
+
+# Docker metadata
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+*.log

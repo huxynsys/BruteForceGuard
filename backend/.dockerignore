@@ -1,0 +1,46 @@
+# Keep the production image small and free of development/secret material.
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tests and developer-only configuration (not needed at runtime)
+tests/
+pytest.ini
+setup.cfg
+tox.ini
+*.md
+
+# Local databases / scratch output
+*.db
+*.sqlite3
+*.log
+*_out.txt
+*_output.txt
+
+# Version control and editors
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Environment files: secrets are injected at runtime (env_file / orchestrator)
+.env
+.env.*
+!.env.example
+
+# Docker metadata
+Dockerfile
+.dockerignore
+docker-compose*.yml

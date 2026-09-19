@@ -1,0 +1,40 @@
+# Build-context hygiene for the production image (the proxy image builds the
+# frontend from the repository root).  Secrets and backend sources are never
+# sent to the build daemon.
+
+.git/
+.github/
+.gitignore
+
+# Not needed by the frontend/proxy image
+backend/
+docs/
+collectors/
+docker-compose*.yml
+
+# Dependencies and build output are produced inside the image
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Python/caches (present when the backend was built locally)
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+
+# Environment files: VITE_* values are passed as build args, and the backend
+# reads .env at runtime through compose.
+.env
+.env.*
+!.env.example
+
+# Local artifacts
+*.log
+*_out.txt
+*_output.txt
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

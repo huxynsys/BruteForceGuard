@@ -1,0 +1,81 @@
+# Production stack (Phase 9.4).
+#
+#   cp .env.example .env      # then edit: APP_ENV=production, secrets, CORS
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences from the development compose file:
+#   * only the reverse proxy publishes a port - PostgreSQL and the backend are
+#     reachable exclusively on the internal Docker network
+#   * the dashboard is built into the proxy image and served same-origin
+#   * POSTGRES_PASSWORD must be supplied or the stack refuses to start
+#
+# The backend's environment file defaults to .env and can be overridden for
+# other environments, e.g.:
+#   docker compose -f docker-compose.prod.yml \
+#     --env-file .env.production up -d --build
+# (with ENV_FILE=.env.production inside that file so the container receives
+# the same values).
+#
+# Schema management stays with Alembic: the backend image runs
+# `alembic upgrade head` (or the documented stamp) before starting the API.
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: bruteforceguard-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: bruteforceguard
+      POSTGRES_USER: bfg_user
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}"
+
+    # No published ports: the database is only reachable by the backend.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bfg_user -d bruteforceguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: bruteforceguard-backend
+    restart: unless-stopped
+
+    env_file:
+      - ${ENV_FILE:-.env}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    # No published ports: the reverse proxy reaches the API over the internal
+    # network.  The image defines the /health liveness probe used below.
+    expose:
+      - "8000"
+
+  proxy:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+      args:
+        # Empty = same origin (browser calls /api/... and Nginx proxies it).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+
+    container_name: bruteforceguard-proxy
+    restart: unless-stopped
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+
+volumes:
+  postgres_data:
