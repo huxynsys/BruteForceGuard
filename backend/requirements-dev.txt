@@ -1,0 +1,4 @@
+# Development / test dependencies (not installed in production images).
+# These are required only for local development and CI test runs.
+pytest==9.1.1
+httpx==0.28.1
