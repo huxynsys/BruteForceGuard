@@ -1,4 +1,12 @@
-import type { Alert, AttackSession, AuthEvent, DashboardAnalytics, DashboardSummary } from '../types'
+import type {
+  Alert,
+  AttackSession,
+  AuthEvent,
+  DashboardAnalytics,
+  DashboardSummary,
+  HealthStatus,
+  ReadinessStatus,
+} from '../types'
 
 /** Shared API fixtures for component and flow tests. */
 
@@ -163,8 +171,35 @@ export const summaryFixture: DashboardSummary = {
   threat_indicators: 12,
 }
 
+/** `GET /health` liveness payload. */
+export const healthFixture: HealthStatus = {
+  status: 'healthy',
+  service: 'bruteforceguard-api',
+  version: '0.5.0',
+}
+
+/** `GET /health/ready` payload when every check passes. */
+export const readinessFixture: ReadinessStatus = {
+  status: 'ready',
+  service: 'bruteforceguard-api',
+  version: '0.5.0',
+  environment: 'development',
+  checks: { configuration: 'ok', database: 'ok' },
+}
+
+/** `GET /health/ready` payload served with HTTP 503 when a check fails. */
+export const notReadyFixture: ReadinessStatus = {
+  status: 'not_ready',
+  service: 'bruteforceguard-api',
+  checks: { configuration: 'ok', database: 'error' },
+  detail: 'database unavailable',
+}
+
 export const analyticsFixture: DashboardAnalytics = {
-  activity: [{ time: '2026-09-08T10:00', failure: 12, success: 4 }],
+  activity: [
+    { time: '2026-09-08T09:00', failure: 12, success: 4 },
+    { time: '2026-09-08T10:00', failure: 31, success: 2 },
+  ],
   top_ips: [{ value: '192.168.1.44', count: 25 }],
   top_users: [{ value: 'admin', count: 18 }],
   top_services: [{ value: 'ssh', count: 30 }],

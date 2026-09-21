@@ -138,6 +138,37 @@ export interface DashboardAnalytics {
   top_services: TopItem[]
 }
 
+/** Liveness payload returned by `GET /health` (never touches the database). */
+export interface HealthStatus {
+  status: string
+  service: string
+  version: string
+}
+
+/**
+ * Readiness checks returned by `GET /health/ready`.
+ * `configuration` validates the detection/risk configuration, `database`
+ * proves PostgreSQL answers a trivial query.
+ */
+export interface ReadinessChecks {
+  configuration: string
+  database: string
+}
+
+/**
+ * Readiness payload returned by `GET /health/ready`. The backend answers
+ * HTTP 503 with the same body shape when a check fails, so callers can show
+ * *which* dependency is unhealthy.
+ */
+export interface ReadinessStatus {
+  status: string
+  service?: string
+  version?: string
+  environment?: string
+  checks: ReadinessChecks
+  detail?: string
+}
+
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
 
 export { detectionLabel, DETECTION_LABELS } from '../lib/detectionLabels'

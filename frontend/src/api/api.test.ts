@@ -2,13 +2,20 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { fetchEvents } from './events'
 import { fetchAlerts } from './alerts'
 import { closeSession, fetchSession, fetchSessionStats, fetchSessions } from './sessions'
-import { fetchAnalytics, fetchHealth, fetchSummary } from './dashboard'
+import {
+  fetchAnalytics,
+  fetchHealth,
+  fetchReadiness,
+  fetchSummary,
+} from './dashboard'
 import { api } from './client'
 import {
   alertFixture,
   analyticsFixture,
   eventFixture,
   sessionFixture,
+  notReadyFixture,
+  readinessFixture,
   summaryFixture,
 } from '../test/fixtures'
 
@@ -114,6 +121,27 @@ describe('api layer', () => {
 
     expect(get).toHaveBeenCalledWith('/health')
     expect(health.status).toBe('healthy')
+  })
+
+  it('fetchReadiness hits /health/ready and keeps a 503 body as data', async () => {
+    get.mockResolvedValue({ data: readinessFixture })
+
+    const ready = await fetchReadiness()
+
+    expect(get).toHaveBeenCalledWith('/health/ready')
+    expect(ready.checks.database).toBe('ok')
+
+    // A 503 is a real answer ("not_ready"), not a transport failure: the
+    // probe body still describes which dependency failed.
+    get.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 503, data: notReadyFixture },
+    })
+
+    const notReady = await fetchReadiness()
+
+    expect(notReady.status).toBe('not_ready')
+    expect(notReady.checks.database).toBe('error')
   })
 
   it('propagates request failures so callers can render error states', async () => {

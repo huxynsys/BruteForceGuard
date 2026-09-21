@@ -5,6 +5,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.endpoints.blacklist import router as blacklist_router
+from app.crud import blacklist as crud_blacklist
+from app.db.database import get_db
+from ipaddress import ip_address, IPv4Address, IPv6Address
+from typing import Union
+
+
 from app.api.events import router as events_router
 from app.api.alerts import router as alerts_router
 from app.api.attack_sessions import router as attack_sessions_router
@@ -59,6 +66,32 @@ app = FastAPI(
 #   * APP_ENV=production                -> an explicit list is required and the
 #                                          '*' wildcard is rejected at startup
 app.add_middleware(
+
+@app.middleware("http")
+async def blacklist_middleware(request: Request, call_next):
+    client_host = request.client.host
+    if client_host:
+        db = None  # Initialize db outside try block
+        try:
+            ip_to_check: Union[IPv4Address, IPv6Address] = ip_address(client_host)
+            db = next(get_db())  # Get a DB session
+            if crud_blacklist.is_ip_blacklisted(db, ip_to_check):
+                raise HTTPException(status_code=403, detail="Forbidden: Your IP address is blacklisted.")
+        except ValueError:
+            logger.warning(f"Invalid IP address format for client host: {client_host}")
+        except HTTPException:
+            raise # Re-raise FastAPI HTTPExceptions
+        except Exception as e:
+            logger.error(f"Error during IP blacklist check for {client_host}: {e}")
+            # Optionally, re-raise as 500 to block on error during blacklist check
+            raise HTTPException(status_code=500, detail="Internal server error during IP check.")
+        finally:
+            if db:
+                db.close()
+    response = await call_next(request)
+    return response
+
+
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=settings.cors_allow_credentials,
@@ -92,3 +125,4 @@ app.include_router(alerts_router)
 app.include_router(attack_sessions_router)
 app.include_router(dashboard_router)  # Phase 6
 app.include_router(intelligence_router)  # Phase 7
+app.include_router(blacklist_router, prefix="/api/v1")
