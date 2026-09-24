@@ -9,12 +9,16 @@ export interface ApiState<T> {
 }
 
 /**
- * Fetch helper with optional polling. Polling only re-runs while the
- * document is visible, so background tabs do not hammer the API.
+ * Fetch helper with optional polling and an optional "refetch key".
+ *
+ * Polling only re-runs while the document is visible, so background tabs do
+ * not hammer the API.  `refetchKey` makes the hook refetch immediately when a
+ * value changes (filters, page number) without waiting for the next poll.
  */
 export function useApi<T>(
   fetcher: () => Promise<T>,
   intervalMs?: number,
+  refetchKey?: string,
 ): ApiState<T> {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,7 +68,7 @@ export function useApi<T>(
       cancelled = true
       if (timer) clearInterval(timer)
     }
-  }, [intervalMs, tick])
+  }, [intervalMs, tick, refetchKey])
 
   return { data, loading, error, lastUpdated, refresh }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { fetchEvents } from './events'
+import { fetchEvents, fetchEventGroups } from './events'
 import { fetchAlerts } from './alerts'
 import { closeSession, fetchSession, fetchSessionStats, fetchSessions } from './sessions'
 import {
@@ -13,6 +13,7 @@ import {
   alertFixture,
   analyticsFixture,
   eventFixture,
+  eventGroupsFixture,
   sessionFixture,
   notReadyFixture,
   readinessFixture,
@@ -142,6 +143,32 @@ describe('api layer', () => {
 
     expect(notReady.status).toBe('not_ready')
     expect(notReady.checks.database).toBe('error')
+  })
+
+  it('fetchEventGroups hits /api/v1/events/groups with paging and sort params', async () => {
+    get.mockResolvedValue({ data: eventGroupsFixture })
+
+    const page = await fetchEventGroups({
+      search: '10.0.0',
+      result: 'failure',
+      sort: 'events',
+      skip: 20,
+      limit: 20,
+      events_limit: 50,
+    })
+
+    expect(get).toHaveBeenCalledWith('/api/v1/events/groups', {
+      params: {
+        search: '10.0.0',
+        result: 'failure',
+        sort: 'events',
+        skip: 20,
+        limit: 20,
+        events_limit: 50,
+      },
+    })
+    expect(page.items).toHaveLength(1)
+    expect(page.total).toBe(1)
   })
 
   it('propagates request failures so callers can render error states', async () => {

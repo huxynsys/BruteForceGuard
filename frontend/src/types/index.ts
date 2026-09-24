@@ -2,12 +2,46 @@ export interface AuthEvent {
   id: number
   timestamp: string
   source: string
-  source_ip: string | null
+  source_ip: string
+  destination_ip: string | null
   username: string | null
   result: 'success' | 'failure' | string
   service: string | null
   port: number | null
+  hostname: string | null
+  user_agent: string | null
+  event_id: string | null
+  raw_event: Record<string, unknown> | null
   created_at: string
+}
+
+/**
+ * Server-side grouped events: one row per correlation key, aggregated by the
+ * backend (``GET /api/v1/events/groups``).  ``AuthEvent`` has no session
+ * foreign key, so Source IP is the strongest correlation identifier that
+ * exists on raw events (NOT NULL + indexed on every event); ``alert_types``
+ * and ``session_ids`` are derived from alerts sharing the group's source IP —
+ * real data, never fabricated.  ``events`` holds the capped most-recent events
+ * of the group so the expanded accordion row renders without a second request.
+ */
+export interface EventGroup {
+  group_key: string
+  group_field: string
+  event_count: number
+  success_count: number
+  failure_count: number
+  usernames: string[]
+  services: string[]
+  first_seen: string
+  last_seen: string
+  alert_types: string[]
+  session_ids: number[]
+  events: AuthEvent[]
+}
+
+export interface EventGroupsPage {
+  items: EventGroup[]
+  total: number
 }
 
 export interface AlertRiskFactor {
@@ -167,6 +201,22 @@ export interface ReadinessStatus {
   environment?: string
   checks: ReadinessChecks
   detail?: string
+}
+
+/** Analyst triage lifecycle of an alert (`alerts.status` in the backend). */
+export type AlertStatus =
+  | 'open'
+  | 'acknowledged'
+  | 'investigating'
+  | 'resolved'
+  | 'false_positive'
+
+/** Facet counts returned by `GET /api/v1/alerts/stats`. */
+export interface AlertStats {
+  total: number
+  by_status: Record<string, number>
+  by_severity: Record<string, number>
+  by_alert_type: Record<string, number>
 }
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low'

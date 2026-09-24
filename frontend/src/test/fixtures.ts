@@ -4,6 +4,7 @@ import type {
   AuthEvent,
   DashboardAnalytics,
   DashboardSummary,
+  EventGroupsPage,
   HealthStatus,
   ReadinessStatus,
 } from '../types'
@@ -141,11 +142,54 @@ export const eventFixture: AuthEvent = {
   timestamp: '2026-09-08T10:42:01Z',
   source: 'linux',
   source_ip: '10.0.0.10',
+  destination_ip: '192.168.1.10',
   username: 'admin',
   result: 'failure',
   service: 'ssh',
   port: 22,
+  hostname: null,
+  user_agent: null,
+  event_id: null,
+  raw_event: { message: 'Failed password for admin from 10.0.0.10' },
   created_at: '2026-09-08T10:42:01Z',
+}
+
+/** Second event in the same source-IP group (different user + result). */
+export const secondEventFixture: AuthEvent = {
+  ...eventFixture,
+  id: 8,
+  timestamp: '2026-09-08T10:43:05Z',
+  created_at: '2026-09-08T10:43:05Z',
+  username: 'root',
+  result: 'success',
+  raw_event: { message: 'Accepted password for root from 10.0.0.10' },
+}
+
+/** Server-side grouped events payload (`GET /api/v1/events/groups`). */
+export const eventGroupsFixture: EventGroupsPage = {
+  items: [
+    {
+      group_key: '10.0.0.10',
+      group_field: 'source_ip',
+      event_count: 2,
+      success_count: 1,
+      failure_count: 1,
+      usernames: ['admin', 'root'],
+      services: ['ssh'],
+      first_seen: '2026-09-08T10:42:01Z',
+      last_seen: '2026-09-08T10:43:05Z',
+      alert_types: ['single_account_bruteforce'],
+      session_ids: [41],
+      events: [secondEventFixture, eventFixture],
+    },
+  ],
+  total: 1,
+}
+
+/** Empty grouped-events payload — exercises the empty state. */
+export const emptyEventGroupsFixture: EventGroupsPage = {
+  items: [],
+  total: 0,
 }
 
 export const summaryFixture: DashboardSummary = {

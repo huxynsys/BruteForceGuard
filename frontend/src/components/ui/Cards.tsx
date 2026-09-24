@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import type { Severity } from '../../types'
+import type { AlertStatus, Severity } from '../../types'
+import { ALERT_STATUSES, alertStatusLabel } from '../../lib/labels'
 
 export function SeverityBadge({ severity }: { severity: string }) {
   const known = ['critical', 'high', 'medium', 'low'].includes(severity)
@@ -56,6 +57,22 @@ export function ResultBadge({ result }: { result: string }) {
       className={`badge ${result === 'success' ? 'badge-success' : 'badge-high'}`}
     >
       {result}
+    </span>
+  )
+}
+
+/**
+ * Alert triage status badge. The status name is always rendered as text, so
+ * the state is never conveyed by colour alone.
+ */
+export function StatusBadge({ status }: { status: string }) {
+  const known = ALERT_STATUSES.includes(status as AlertStatus)
+
+  return (
+    <span
+      className={`badge status-badge status-badge--${known ? status : 'unknown'}`}
+    >
+      {alertStatusLabel(status)}
     </span>
   )
 }

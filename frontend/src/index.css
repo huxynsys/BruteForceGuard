@@ -1011,6 +1011,8 @@ table.data tbody tr:hover { background: #fafcfc; }
   .analyst-signal { align-items: flex-start; flex-direction: column; gap: 8px; padding: 11px 12px; }
   .signal-items { width: 100%; justify-content: space-between; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
   .signal-items span { flex-shrink: 0; }
+}
+
 /* ---------------------------- Phase 7: Intelligence ---------------------- */
 
 .risk-score {
@@ -1184,4 +1186,154 @@ table.data tbody tr:hover { background: #fafcfc; }
 .text-muted {
   color: var(--text-muted);
 }
+
+/* ---------------------------- Alerts work queue (triage) ------------------ */
+
+.neo-button--sm {
+  padding: 6px 10px;
+  font-size: 11px;
+  border-radius: 10px;
+}
+
+/* Filter bar: the search input stretches, selects stay compact. */
+.filter-bar .neo-input[type='search'] { min-width: 220px; flex: 1 1 220px; }
+.filter-bar select.neo-input { cursor: pointer; }
+.filter-bar .neo-button { white-space: nowrap; }
+
+/* Dismissible banners: action failure / success notice / stale refresh. */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.alert-banner--ok { color: var(--success); background: #eaf7f1; }
+.alert-banner--error { color: var(--danger); background: #fff0ef; }
+.alert-banner--warn { color: var(--warning); background: #fff9e9; }
+.alert-banner .neo-button--sm { flex-shrink: 0; }
+
+/* Triage status pills: colour + text label (never colour alone). */
+.status-badge--open { color: var(--accent); background: #eef6fd; }
+.status-badge--acknowledged { color: var(--warning); background: #fff7e7; }
+.status-badge--investigating { color: var(--accent-cyan); background: #e9fbfd; }
+.status-badge--resolved { color: var(--success); background: #eaf7f1; }
+.status-badge--false_positive,
+.status-badge--unknown { color: var(--text-muted); background: #f4f6f7; }
+
+/* Breakdown chips between toolbar and table. */
+.status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.status-summary__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Row action cluster inside the alerts table. */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.row-actions .neo-button--sm { padding: 4px 8px; font-size: 10px; }
+
+/* Server-side pagination controls. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.pager__info { color: var(--text-muted); font-size: 11px; margin-right: auto; }
+
+/* Action row inside empty states (clear filters / back to first page). */
+.state-action {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .pager { justify-content: center; }
+  .pager__info { margin-right: 0; width: 100%; text-align: center; }
+  .row-actions { flex-direction: column; gap: 5px; }
+  .alert-banner { flex-direction: column; align-items: flex-start; }
+}
+
+/* ---------------------------- Events: grouped accordion -------------- */
+.event-group__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.event-group__toggle svg { color: var(--accent); flex-shrink: 0; }
+.event-group__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.event-group__toggle .mono { font-weight: 650; }
+.metric-ok { color: var(--success); font-weight: 650; }
+.metric-fail { color: var(--danger); font-weight: 650; }
+
+.event-detail-cell { padding: 0 !important; }
+.event-detail { padding: 4px 12px 16px; }
+
+.group-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  padding: 10px 12px;
+  margin: 10px 0 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.group-context b {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.group-context .mono { color: var(--text-primary); }
+.group-truncated { color: var(--warning); font-weight: 600; }
+
+.raw-details { margin-top: 4px; }
+.raw-details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font: 600 11px var(--font-mono);
+  list-style: revert;
+}
+.raw-details pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+  color: var(--text-secondary);
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
