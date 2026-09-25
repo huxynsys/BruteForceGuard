@@ -29,3 +29,28 @@ export function canAcknowledge(status: string): boolean {
 export function canResolve(status: string): boolean {
   return status !== 'resolved' && status !== 'false_positive'
 }
+
+/**
+ * Marking an alert as a false positive is always a legitimate correction
+ * (including on an already-resolved alert), but re-marking it is not.
+ */
+export function canMarkFalsePositive(status: string): boolean {
+  return status !== 'false_positive'
+}
+
+/**
+ * Whether the recorded detection evidence reached the rule's threshold.
+ *
+ * Returns `null` when either number is unknown so the UI states "unknown"
+ * rather than claiming a threshold was met (or missed) it cannot prove.
+ */
+export function thresholdReached(
+  observed: number | null,
+  threshold: number | null | undefined,
+): boolean | null {
+  if (observed === null || threshold === null || threshold === undefined) {
+    return null
+  }
+  return observed >= threshold
+}
+

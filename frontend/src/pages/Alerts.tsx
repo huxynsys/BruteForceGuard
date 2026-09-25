@@ -5,6 +5,7 @@ import { fetchAlertsPage, updateAlertStatus } from '../api/alerts'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
 import { StatusBadge } from '../components/ui/Cards'
 import AlertTable from '../components/alerts/AlertTable'
+import AlertDetailPanel from '../components/alerts/AlertDetailPanel'
 import { ALERT_STATUSES, alertStatusLabel } from '../lib/labels'
 import { detectionLabel } from '../lib/detectionLabels'
 import type { Alert, AlertStatus, Severity } from '../types'
@@ -28,6 +29,8 @@ function plural(count: number, word: string): string {
  * (`GET /api/v1/alerts/` + `/stats`) and Acknowledge/Resolve persist a triage
  * transition through `PATCH /api/v1/alerts/{id}` before the table is
  * refreshed from the server.
+ *
+ * Selecting a row opens the alert details side panel for that alert.
  */
 export default function Alerts() {
   const [searchInput, setSearchInput] = useState('')
@@ -40,6 +43,8 @@ export default function Alerts() {
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  /** Alert whose details side panel is open. */
+  const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const filters = useMemo(
     () => ({
@@ -67,6 +72,10 @@ export default function Alerts() {
 
   const items = data?.items ?? []
   const total = data?.total ?? 0
+  // The selected alert is always read from the latest server page, so the side
+  // panel shows persisted values and closes itself once the alert no longer
+  // matches the active filters or page.
+  const selectedAlert = items.find((item) => item.id === selectedId) ?? null
   const statusCounts = data?.stats.by_status ?? {}
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const firstRow = total === 0 ? 0 : page * PAGE_SIZE + 1
@@ -106,6 +115,14 @@ export default function Alerts() {
     setPage(0)
     clearFeedbacks()
   }
+
+  /** Selecting a row opens the alert details side panel for that alert. */
+  const handleSelect = (alert: Alert) => {
+    setSelectedId(alert.id)
+    clearFeedbacks()
+  }
+
+  const closePanel = () => setSelectedId(null)
 
   const handleStatusChange = async (alert: Alert, next: AlertStatus) => {
     setPendingId(alert.id)
@@ -327,6 +344,8 @@ export default function Alerts() {
             alerts={items}
             onStatusChange={handleStatusChange}
             pendingId={pendingId}
+            selectedId={selectedId}
+            onSelect={handleSelect}
           />
         )}
       </div>
@@ -372,6 +391,14 @@ export default function Alerts() {
         </nav>
       )}
 
+      {selectedAlert && (
+        <AlertDetailPanel
+          alert={selectedAlert}
+          pending={pendingId === selectedAlert.id}
+          onStatusChange={handleStatusChange}
+          onClose={closePanel}
+        />
+      )}
     </>
   )
 }

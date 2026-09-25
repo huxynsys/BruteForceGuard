@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { fetchEvents, fetchEventGroups } from './events'
 import { fetchAlerts } from './alerts'
+import { blockIpAddress, fetchBlacklistEntries } from './blacklist'
 import { closeSession, fetchSession, fetchSessionStats, fetchSessions } from './sessions'
 import {
   fetchAnalytics,
@@ -12,6 +13,7 @@ import { api } from './client'
 import {
   alertFixture,
   analyticsFixture,
+  blacklistEntryFixture,
   eventFixture,
   eventGroupsFixture,
   sessionFixture,
@@ -169,6 +171,42 @@ describe('api layer', () => {
     })
     expect(page.items).toHaveLength(1)
     expect(page.total).toBe(1)
+  })
+
+  it('fetchBlacklistEntries lists the stored entries with a bounded limit', async () => {
+    get.mockResolvedValue({ data: [blacklistEntryFixture] })
+
+    const entries = await fetchBlacklistEntries()
+
+    expect(get).toHaveBeenCalledWith('/api/v1/blacklist/', {
+      params: { limit: 100 },
+    })
+    expect(entries).toHaveLength(1)
+    expect(entries[0].entry_type).toBe('SINGLE')
+  })
+
+  it('blockIpAddress POSTs a SINGLE blacklist entry for the IP', async () => {
+    post.mockResolvedValue({ data: blacklistEntryFixture })
+
+    const entry = await blockIpAddress('192.168.1.44', 'Blocked from alert #1')
+
+    expect(post).toHaveBeenCalledWith('/api/v1/blacklist/', {
+      entry_type: 'SINGLE',
+      ip_address: '192.168.1.44',
+      description: 'Blocked from alert #1',
+    })
+    expect(entry.id).toBe(9)
+  })
+
+  it('blockIpAddress omits a blank description', async () => {
+    post.mockResolvedValue({ data: blacklistEntryFixture })
+
+    await blockIpAddress('192.168.1.44', '   ')
+
+    expect(post).toHaveBeenCalledWith('/api/v1/blacklist/', {
+      entry_type: 'SINGLE',
+      ip_address: '192.168.1.44',
+    })
   })
 
   it('propagates request failures so callers can render error states', async () => {

@@ -12,9 +12,13 @@ function renderTable(
   {
     onStatusChange = noop,
     pendingId = null,
+    selectedId = null,
+    onSelect = noop,
   }: {
     onStatusChange?: (alert: Alert, status: AlertStatus) => void
     pendingId?: number | null
+    selectedId?: number | null
+    onSelect?: (alert: Alert) => void
   } = {},
 ) {
   return render(
@@ -27,6 +31,8 @@ function renderTable(
               alerts={alerts}
               onStatusChange={onStatusChange}
               pendingId={pendingId}
+              selectedId={selectedId}
+              onSelect={onSelect}
             />
           }
         />
@@ -161,5 +167,60 @@ describe('AlertTable', () => {
     expect(
       screen.getByRole('button', { name: 'Resolve alert 1' }),
     ).toBeDisabled()
+  })
+})
+
+describe('AlertTable selection', () => {
+  it('selects an alert when its row is clicked', () => {
+    const onSelect = vi.fn()
+    renderTable([alertFixture], { onSelect })
+
+    fireEvent.click(screen.getAllByRole('row')[1])
+
+    expect(onSelect).toHaveBeenCalledWith(alertFixture)
+  })
+
+  it('exposes a keyboard-selectable details control on every row', () => {
+    const onSelect = vi.fn()
+    renderTable([alertFixture], { onSelect })
+
+    const toggle = screen.getByRole('button', {
+      name: 'Open details for alert 1',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(toggle)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith(alertFixture)
+  })
+
+  it('marks the row of the alert whose panel is open', () => {
+    renderTable([alertFixture], { selectedId: alertFixture.id })
+
+    expect(
+      screen.getByRole('button', { name: 'Open details for alert 1' }),
+    ).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByRole('row')[1]).toHaveClass('is-selected')
+  })
+
+  it('does not select an alert when a triage action is used', () => {
+    const onSelect = vi.fn()
+    renderTable([alertFixture], { onSelect })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge alert 1' }))
+
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('does not select an alert when the details link is used', () => {
+    const onSelect = vi.fn()
+    renderTable([alertFixture], { onSelect })
+
+    fireEvent.click(
+      screen.getByRole('link', { name: 'View details for alert 1' }),
+    )
+
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })

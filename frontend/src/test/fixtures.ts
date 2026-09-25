@@ -1,15 +1,37 @@
 import type {
   Alert,
+  AlertDetectionRule,
   AttackSession,
   AuthEvent,
+  BlacklistEntry,
   DashboardAnalytics,
   DashboardSummary,
+  EventGroup,
   EventGroupsPage,
   HealthStatus,
   ReadinessStatus,
 } from '../types'
+import type { ReputationResult } from '../types/intelligence'
 
 /** Shared API fixtures for component and flow tests. */
+
+/**
+ * Detection-rule context returned with every alert (`detection_rule`).
+ *
+ * Mirrors `get_detection_rule("single_account_bruteforce", "ssh")` in the
+ * backend, so the panel never has to carry its own threshold copy.
+ */
+export const detectionRuleFixture: AlertDetectionRule = {
+  alert_type: 'single_account_bruteforce',
+  label: 'Single Account Brute Force',
+  threshold_label: 'Failed attempts against the same account',
+  threshold: 5,
+  secondary_label: null,
+  secondary_threshold: null,
+  window_seconds: 300,
+  requirement:
+    '5 failed authentication attempts against the same account from the same source IP within 300 seconds.',
+}
 
 export const alertFixture: Alert = {
   id: 1,
@@ -23,8 +45,9 @@ export const alertFixture: Alert = {
   service: 'ssh',
   mitre_technique: 'T1110.001',
   status: 'open',
-  evidence: { failure_count: 10 },
+  evidence: { failure_count: 10, window_seconds: 300 },
   created_at: '2026-09-08T10:42:00Z',
+  detection_rule: detectionRuleFixture,
   // Phase 7 intelligence
   risk_score: 72,
   risk_level: 'high',
@@ -190,6 +213,57 @@ export const eventGroupsFixture: EventGroupsPage = {
 export const emptyEventGroupsFixture: EventGroupsPage = {
   items: [],
   total: 0,
+}
+
+/**
+ * Grouped events for `alertFixture`'s source IP, as returned by
+ * `GET /api/v1/events/groups?search=192.168.1.44`.  `event_count` is the true
+ * total while `events` holds the capped most-recent page, exactly like the
+ * backend, so the panel's truncation note can be verified.
+ */
+export const alertEventGroupFixture: EventGroup = {
+  group_key: '192.168.1.44',
+  group_field: 'source_ip',
+  event_count: 3,
+  success_count: 1,
+  failure_count: 2,
+  usernames: ['admin'],
+  services: ['ssh'],
+  first_seen: '2026-09-08T10:40:00Z',
+  last_seen: '2026-09-08T10:43:05Z',
+  alert_types: ['single_account_bruteforce'],
+  session_ids: [41],
+  events: [
+    { ...secondEventFixture, id: 8, source_ip: '192.168.1.44' },
+    { ...eventFixture, id: 7, source_ip: '192.168.1.44' },
+  ],
+}
+
+/** `GET /api/v1/intelligence/reputation/{ip}` payload. */
+export const reputationFixture: ReputationResult = {
+  source_ip: '192.168.1.44',
+  internal_reputation_score: 78,
+  internal_reputation_level: 'high',
+  failure_rate: 1,
+  unique_usernames: 2,
+  unique_services: 1,
+  attack_sessions: 3,
+  alert_count: 4,
+  first_seen: '2026-09-08T10:31:22Z',
+  last_seen: '2026-09-08T10:42:00Z',
+}
+
+/** `POST/GET /api/v1/blacklist/` entry created by "Block Source IP". */
+export const blacklistEntryFixture: BlacklistEntry = {
+  id: 9,
+  entry_type: 'SINGLE',
+  ip_address: '192.168.1.44',
+  ip_range_start: null,
+  ip_range_end: null,
+  region_code: null,
+  description: 'Blocked from alert #1',
+  created_at: '2026-09-08T11:00:00Z',
+  updated_at: '2026-09-08T11:00:00Z',
 }
 
 export const summaryFixture: DashboardSummary = {

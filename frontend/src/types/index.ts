@@ -50,6 +50,25 @@ export interface AlertRiskFactor {
   reason: string
 }
 
+/**
+ * Detection-rule context returned with every alert (`detection_rule`).
+ *
+ * The values come from the backend's detection configuration, so the panel can
+ * explain a detection without the browser duplicating (and drifting from) the
+ * thresholds the engine actually ran with.  `null` for alert types the engine
+ * no longer knows, in which case only the persisted evidence is available.
+ */
+export interface AlertDetectionRule {
+  alert_type: string
+  label: string
+  threshold_label: string
+  threshold: number
+  secondary_label: string | null
+  secondary_threshold: number | null
+  window_seconds: number
+  requirement: string
+}
+
 /** Phase 7 threat-intelligence payload persisted on an alert. */
 export interface AlertThreatIntel {
   known: boolean
@@ -95,6 +114,8 @@ export interface Alert {
   status: string
   evidence: Record<string, unknown>
   created_at: string
+  /** Detection-rule context behind `alert_type` (see `AlertDetectionRule`). */
+  detection_rule?: AlertDetectionRule | null
   // Phase 7 intelligence enrichment
   risk_score: number
   risk_level: string
@@ -220,5 +241,30 @@ export interface AlertStats {
 }
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
+
+/**
+ * Blacklist entry as returned by `GET/POST /api/v1/blacklist/`.
+ *
+ * `Region` entries carry `region_code`, `RANGE` entries carry the inclusive
+ * start/end bounds and `SINGLE` entries carry `ip_address`.
+ */
+export interface BlacklistEntry {
+  id: number
+  entry_type: 'SINGLE' | 'RANGE' | 'REGION'
+  ip_address: string | null
+  ip_range_start: string | null
+  ip_range_end: string | null
+  region_code: string | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Body of `POST /api/v1/blacklist/` (backend validates the IP format). */
+export interface BlacklistEntryCreate {
+  entry_type: 'SINGLE' | 'RANGE' | 'REGION'
+  ip_address?: string
+  description?: string
+}
 
 export { detectionLabel, DETECTION_LABELS } from '../lib/detectionLabels'

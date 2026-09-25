@@ -11,18 +11,26 @@ interface AlertTableProps {
   onStatusChange: (alert: Alert, status: AlertStatus) => void
   /** Alert currently being updated (its actions are disabled). */
   pendingId?: number | null
+  /** Alert whose details panel is open (its row is highlighted). */
+  selectedId?: number | null
+  /** Select an alert; the page opens the details side panel. */
+  onSelect?: (alert: Alert) => void
 }
 /**
  * Detailed alert work queue.
  *
- * Navigation to a single alert happens through the explicit "View details"
- * link in the actions cell; triage actions report through `onStatusChange`
- * so the page owns the API persistence.
+ * Selecting a row - clicking anywhere on it or activating the detection-type
+ * button in its first cell - opens the alert details side panel owned by the
+ * page.  The explicit "View details" link still navigates to the full alert
+ * page, and triage actions report through `onStatusChange` so the page owns the
+ * API persistence.
  */
 export default function AlertTable({
   alerts,
   onStatusChange,
   pendingId = null,
+  selectedId = null,
+  onSelect,
 }: AlertTableProps) {
   return (
     <div className="table-wrap">
@@ -43,9 +51,14 @@ export default function AlertTable({
           {alerts.map((alert) => {
             const attempts = failedAttempts(alert)
             const busy = pendingId === alert.id
+            const selected = selectedId === alert.id
 
             return (
-              <tr key={alert.id}>
+              <tr
+                key={alert.id}
+                className={`clickable${selected ? ' is-selected' : ''}`}
+                onClick={() => onSelect?.(alert)}
+              >
                 <td className="mono" title={alert.created_at}>
                   {formatDateTime(alert.created_at)}
                 </td>
@@ -53,10 +66,24 @@ export default function AlertTable({
                   <SeverityBadge severity={alert.severity} />
                 </td>
                 <td className="strong">
-                  {detectionLabel(alert.alert_type)}{' '}
-                  <span className="mono" style={{ color: 'var(--text-muted)' }}>
-                    #{alert.id}
-                  </span>
+                  <button
+                    type="button"
+                    className="alert-row__toggle"
+                    aria-expanded={selected}
+                    aria-label={`Open details for alert ${alert.id}`}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onSelect?.(alert)
+                    }}
+                  >
+                    {detectionLabel(alert.alert_type)}{' '}
+                    <span
+                      className="mono"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
+                      #{alert.id}
+                    </span>
+                  </button>
                 </td>
                 <td className="mono">{alert.source_ip ?? '—'}</td>
                 <td className="mono">{alert.username ?? '—'}</td>
