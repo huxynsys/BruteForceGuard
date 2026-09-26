@@ -256,6 +256,9 @@ export interface BlacklistEntry {
   ip_range_end: string | null
   region_code: string | null
   description: string | null
+  list_type: 'BLOCKLIST' | 'WHITELIST'
+  added_by: string | null
+  expires_at: string | null
   created_at: string
   updated_at: string
 }
@@ -263,8 +266,11 @@ export interface BlacklistEntry {
 /** Body of `POST /api/v1/blacklist/` (backend validates the IP format). */
 export interface BlacklistEntryCreate {
   entry_type: 'SINGLE' | 'RANGE' | 'REGION'
+  list_type?: 'BLOCKLIST' | 'WHITELIST'
   ip_address?: string
   description?: string
+  added_by?: string
+  expires_at?: string | null
 }
 
 export { detectionLabel, DETECTION_LABELS } from '../lib/detectionLabels'

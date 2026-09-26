@@ -8,6 +8,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   LifeBuoy,
+  Shield,
 } from 'lucide-react'
 import Topbar from './Topbar'
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/events', label: 'Events', icon: ScrollText },
   { to: '/alerts', label: 'Alerts', icon: ShieldAlert },
   { to: '/sessions', label: 'Attack Sessions', icon: Network },
+  { to: '/ip-management', label: 'IP Management', icon: Shield },
   { to: '/analytics', label: 'Analytics', icon: ChartLine },
 ]
 

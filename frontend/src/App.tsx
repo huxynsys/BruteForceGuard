@@ -8,6 +8,7 @@ import Sessions from './pages/Sessions'
 import SessionDetailPage from './pages/SessionDetail'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
+import IPManagementPage from './pages/IPManagement'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:id" element={<SessionDetailPage />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/ip-management" element={<IPManagementPage />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

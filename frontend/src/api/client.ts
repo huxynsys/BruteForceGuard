@@ -25,8 +25,20 @@ export function resolveApiBaseUrl(env: ApiEnv): string {
 
 export const API_BASE_URL: string = resolveApiBaseUrl(import.meta.env)
 
+const IP_MANAGEMENT_TOKEN = import.meta.env.VITE_IP_MANAGEMENT_TOKEN
+const IP_MANAGEMENT_USER = import.meta.env.VITE_IP_MANAGEMENT_USER ?? 'frontend'
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10_000,
   headers: { 'Content-Type': 'application/json' },
 })
+
+if (IP_MANAGEMENT_TOKEN) {
+  api.interceptors.request.use((config) => {
+    config.headers = config.headers ?? {}
+    config.headers.Authorization = `Bearer ${IP_MANAGEMENT_TOKEN}`
+    config.headers['X-User-Id'] = IP_MANAGEMENT_USER
+    return config
+  })
+}

@@ -154,8 +154,26 @@ export default function AlertDetailPanel({
     })
 
     // The event search matches source IP *or* username, so select the group
-    // whose correlation key is exactly this alert's source IP.
-    return page.items.find((group) => group.group_key === sourceIp) ?? null
+    // whose correlation key is exactly this alert's source IP. If no exact
+    // source-IP group exists, render the empty state rather than a null result
+    // so the analyst sees that the alert has no stored raw authentication
+    // events for this IP.
+    return (
+      page.items.find((group) => group.group_key === sourceIp) ?? {
+        group_key: sourceIp,
+        group_field: 'source_ip',
+        event_count: 0,
+        success_count: 0,
+        failure_count: 0,
+        usernames: [],
+        services: [],
+        first_seen: '',
+        last_seen: '',
+        alert_types: [],
+        session_ids: [],
+        events: [],
+      }
+    )
   }, [sourceIp])
 
   const related = useApi(
@@ -526,9 +544,7 @@ export default function AlertDetailPanel({
 
                 {historyAlerts.length === 0 ? (
                   <p className="text-muted alert-panel__note">
-                    {reputation && reputation.alert_count > 0
-                      ? 'The alerts for this IP are outside the bounded window that was fetched.'
-                      : 'No alerts recorded from this IP yet.'}
+                    No alerts recorded from this IP yet.
                   </p>
                 ) : (
                   <ul className="alert-panel__history">

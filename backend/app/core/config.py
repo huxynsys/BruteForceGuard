@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # development defaults" (outside production only).
     cors_allowed_origins: str = ""
 
+    # --- IP management / admin actions ----------------------------------
+    # Comma-separated API tokens accepted for IP blocklist/whitelist writes.
+    # Empty means the feature is intentionally disabled until configured.
+    ip_management_api_tokens: str = ""
+
     # --- Legacy bootstrap (development / tests only) -------------------
     # Alembic is the authoritative schema mechanism (Phase 9.2).  This flag
     # exists so legacy `create_all` workflows can still be bootstrapped
@@ -160,6 +165,14 @@ class Settings(BaseSettings):
     def cors_allow_credentials(self) -> bool:
         # A wildcard origin cannot be combined with credentials.
         return "*" not in self.cors_origins
+
+    @property
+    def ip_management_api_token_list(self) -> list[str]:
+        return [
+            token.strip()
+            for token in self.ip_management_api_tokens.split(",")
+            if token.strip()
+        ]
 
     @property
     def docs_enabled(self) -> bool:
