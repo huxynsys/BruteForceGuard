@@ -4,11 +4,23 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.auth_event import AuthEventCreate, AuthEventResponse
+from app.schemas.auth_event import (
+    AuthEventCreate,
+    AuthEventResponse,
+    EventGroupPage,
+)
 from app.services.event_service import EventService
 
 from app.services.detection_service import DetectionService
-from app.core.detection_config import get_service_thresholds
+from app.core.detection_config import (
+    CREDENTIAL_STUFFING_WINDOW_SECONDS,
+    FAILED_THEN_SUCCESS_MINIMUM_FAILURES,
+    FAILED_THEN_SUCCESS_WINDOW_SECONDS,
+    LOW_AND_SLOW_MINIMUM_ACTIVE_INTERVALS,
+    LOW_AND_SLOW_MINIMUM_FAILURES,
+    LOW_AND_SLOW_WINDOW_SECONDS,
+    get_service_thresholds,
+)
 from app.services.attack_session_service import (
     AttackSessionIntegrationService,
 )
@@ -88,8 +100,8 @@ def create_event(
             "failed_success",
             detection_service.detect_failed_then_success,
             {
-                "minimum_failures": 3,
-                "window_seconds": 300,
+                "minimum_failures": FAILED_THEN_SUCCESS_MINIMUM_FAILURES,
+                "window_seconds": FAILED_THEN_SUCCESS_WINDOW_SECONDS,
             },
         ),
         (
@@ -98,16 +110,16 @@ def create_event(
             {
                 "minimum_users": thresholds["credential_stuffing_users"],
                 "minimum_failures": thresholds["credential_stuffing_failures"],
-                "window_seconds": 600,
+                "window_seconds": CREDENTIAL_STUFFING_WINDOW_SECONDS,
             },
         ),
         (
             "low_and_slow",
             detection_service.detect_low_and_slow,
             {
-                "minimum_failures": 10,
-                "window_seconds": 3600,
-                "minimum_active_intervals": 5,
+                "minimum_failures": LOW_AND_SLOW_MINIMUM_FAILURES,
+                "window_seconds": LOW_AND_SLOW_WINDOW_SECONDS,
+                "minimum_active_intervals": LOW_AND_SLOW_MINIMUM_ACTIVE_INTERVALS,
             },
         ),
     ]
@@ -166,6 +178,53 @@ def list_events(
         limit=limit,
         skip=skip,
     )
+
+
+@router.get("/groups", response_model=EventGroupPage)
+def list_event_groups(
+    db: Session = Depends(get_db),
+    search: str | None = None,
+    result: str | None = None,
+    sort: str = "recent",
+    skip: int = 0,
+    limit: int = 20,
+    events_limit: int = 20,
+):
+    """Group events by their strongest correlation identifier.
+
+    ``AuthEvent`` has no session linkage (sessions are only reachable via
+    ``Alert.session_id``), so groups are keyed by ``source_ip`` — NOT NULL and
+    indexed on every event.  Attack context per group (``alert_types``,
+    ``session_ids``) is derived from alerts sharing the group's source IP.
+    Grouping, filtering, sorting and pagination all happen server-side so the
+    browser never receives an unbounded raw event list.
+
+    Registered before ``/{event_id}`` so the int path parameter cannot
+    shadow this literal route.
+    """
+    if result is not None and result not in ("success", "failure"):
+        raise HTTPException(
+            status_code=422,
+            detail="result must be 'success' or 'failure'",
+        )
+    if sort not in ("recent", "events", "ip"):
+        raise HTTPException(
+            status_code=422,
+            detail="sort must be one of 'recent', 'events', 'ip'",
+        )
+
+    event_service = EventService(db)
+
+    items, total = event_service.get_event_groups(
+        search=search,
+        result=result,
+        sort=sort,
+        skip=skip,
+        limit=limit,
+        events_limit=events_limit,
+    )
+
+    return {"items": items, "total": total}
 
 
 @router.get("/{event_id}", response_model=AuthEventResponse)

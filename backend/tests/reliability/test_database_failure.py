@@ -112,7 +112,7 @@ def test_database_outage_on_alerts_returns_500_without_hanging(
     def boom(*args, **kwargs):  # noqa: ANN001
         raise _raised_operational_error()
 
-    monkeypatch.setattr("app.api.alerts.select", boom)
+    monkeypatch.setattr("app.services.alert_service.select", boom)
 
     response = strict.get("/api/v1/alerts/")
 

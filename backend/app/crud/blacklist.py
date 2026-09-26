@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from app.models.__init__ import BlacklistedIP, BlacklistEntryType
+from app.models import BlacklistedIP, BlacklistEntryType
 from app.schemas.blacklist import BlacklistEntryCreate
 from app.utils.ip_utils import get_region_from_ip # Will create this next
 

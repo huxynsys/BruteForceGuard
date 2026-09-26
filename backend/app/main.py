@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -65,8 +65,6 @@ app = FastAPI(
 #   * CORS_ALLOWED_ORIGINS configured   -> exactly those origins
 #   * APP_ENV=production                -> an explicit list is required and the
 #                                          '*' wildcard is rejected at startup
-app.add_middleware(
-
 @app.middleware("http")
 async def blacklist_middleware(request: Request, call_next):
     client_host = request.client.host
@@ -92,6 +90,7 @@ async def blacklist_middleware(request: Request, call_next):
     return response
 
 
+app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=settings.cors_allow_credentials,

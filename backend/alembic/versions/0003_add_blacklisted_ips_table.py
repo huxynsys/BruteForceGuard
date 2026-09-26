@@ -14,8 +14,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "blacklisted_ips",
-        sa.Column("id", sa.Integer(), primary_key=True, index=True),
-        sa.Column("entry_type", sa.String(length=20), nullable=False, index=True),
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("entry_type", sa.String(length=20), nullable=False),
         sa.Column("ip_address", postgresql.INET(), nullable=True),
         sa.Column("ip_range_start", postgresql.INET(), nullable=True),
         sa.Column("ip_range_end", postgresql.INET(), nullable=True),

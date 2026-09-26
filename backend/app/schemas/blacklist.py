@@ -2,8 +2,7 @@ from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, Field, conlist, validator
-from pydantic_extra_types.inet import IPNetwork
+from pydantic import BaseModel, Field, IPvAnyNetwork, validator
 
 
 class BlacklistEntryBase(BaseModel):
@@ -13,7 +12,7 @@ class BlacklistEntryBase(BaseModel):
 class BlacklistEntryCreate(BlacklistEntryBase):
     entry_type: Literal["SINGLE", "RANGE", "REGION"]
     ip_address: Optional[Union[IPv4Address, IPv6Address]] = None
-    ip_network: Optional[IPNetwork] = None
+    ip_network: Optional[IPvAnyNetwork] = None
     region_code: Optional[str] = Field(None, max_length=10)
 
     @validator("ip_address", pre=True)

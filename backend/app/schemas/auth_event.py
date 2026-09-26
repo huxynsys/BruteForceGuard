@@ -75,3 +75,34 @@ class AuthEventResponse(BaseModel):
     event_id: str | None
     raw_event: dict | None
     created_at: datetime
+
+
+class EventGroupResponse(BaseModel):
+    """One correlation group (grouped by ``source_ip``) for the events page.
+
+    ``alert_types`` and ``session_ids`` are derived from alerts that share the
+    group's source IP — raw events are not linked to sessions in the data
+    model, so this is the only real attack context available for a group.
+    ``events`` holds the (capped) most recent events of the group so the
+    expanded accordion row can render without a second request.
+    """
+
+    group_key: str
+    group_field: str
+    event_count: int
+    success_count: int
+    failure_count: int
+    usernames: list[str]
+    services: list[str]
+    first_seen: datetime
+    last_seen: datetime
+    alert_types: list[str]
+    session_ids: list[int]
+    events: list[AuthEventResponse]
+
+
+class EventGroupPage(BaseModel):
+    """Server-side paginated envelope for the grouped events endpoint."""
+
+    items: list[EventGroupResponse]
+    total: int
