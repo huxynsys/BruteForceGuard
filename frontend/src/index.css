@@ -287,6 +287,127 @@ body {
   font-size: 12px;
 }
 
+.page-header-copy {
+  max-width: 560px;
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-heading .eyebrow,
+.managed-list .eyebrow {
+  margin-bottom: 4px;
+}
+
+.form-hint {
+  color: var(--text-muted);
+  font-size: 10px;
+  padding-top: 3px;
+}
+
+.ip-form label b { color: var(--accent); }
+
+.inline-feedback {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 13px;
+  padding: 9px 11px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.inline-feedback--error { color: var(--danger); background: #fff0ef; }
+.inline-feedback--success { color: var(--success); background: #eaf7f1; }
+
+.toolbar-button--danger {
+  color: var(--danger);
+  border-color: #efc9c6;
+  background: #fff7f6;
+}
+
+.toolbar-button--danger:hover { color: var(--critical); border-color: #dfaaa5; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 32, 42, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.confirmation-modal {
+  position: relative;
+  width: min(100%, 420px);
+  padding: 26px;
+  border: 1px solid #e1e7e9;
+  border-radius: 7px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgba(23, 32, 42, 0.2);
+}
+
+.confirmation-modal h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.confirmation-modal p:not(.eyebrow) {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.modal-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 18px;
+  border-radius: 6px;
+  color: var(--danger);
+  background: #fff0ef;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal-close:hover { color: var(--text-primary); background: #f1f4f5; }
+.modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.mobile-nav { display: none; }
+
 .list-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1165,6 +1286,72 @@ table.data tbody tr:hover { background: #fafcfc; }
   .analyst-signal { align-items: flex-start; flex-direction: column; gap: 8px; padding: 11px 12px; }
   .signal-items { width: 100%; justify-content: space-between; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
   .signal-items span { flex-shrink: 0; }
+}
+
+@media (max-width: 900px) {
+  .mobile-nav {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid #e1e7e9;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 10px 28px rgba(31, 45, 55, 0.13);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-nav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 7px 3px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .mobile-nav__item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-nav__item.active {
+    color: var(--accent);
+    background: #fff0ee;
+  }
+
+  .mobile-nav__item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  .main > *:not(.topbar) { padding-bottom: 100px; }
+}
+
+@media (max-width: 700px) {
+  .page-header,
+  .ip-page-header { flex-direction: column; }
+  .page-header-kpis { width: 100%; }
+  .mini-stat { flex: 1; min-width: 0; }
+  .field-row,
+  .list-grid { grid-template-columns: 1fr; }
+  .entry-row { align-items: flex-start; flex-direction: column; }
+  .entry-row .neo-button { width: 100%; }
+  .section-heading { flex-direction: column; gap: 4px; }
+  .form-hint { padding-top: 0; }
 }
 
 /* ---------------------------- Phase 7: Intelligence ---------------------- */

@@ -70,6 +70,15 @@ export default function Layout() {
         <Topbar />
         <Outlet />
       </main>
+
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {NAV_ITEMS.slice(0, 5).map(({ to, label, icon: Icon, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => `mobile-nav__item${isActive ? ' active' : ''}`}>
+            <Icon size={17} aria-hidden="true" />
+            <span>{label === 'Attack Sessions' ? 'Sessions' : label === 'IP Management' ? 'IP Rules' : label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { ShieldAlert, ShieldCheck, Trash2, Plus } from 'lucide-react'
+import { AlertTriangle, Check, Plus, ShieldAlert, ShieldCheck, Trash2, X } from 'lucide-react'
 
 import { blockIpAddress, deleteBlacklistEntry, fetchBlacklistEntries } from '../api/blacklist'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/States'
@@ -7,6 +7,7 @@ import { useApi, POLL_INTERVAL } from '../hooks/useApi'
 import type { BlacklistEntry } from '../types'
 
 type ListType = 'BLOCKLIST' | 'WHITELIST'
+type ConfirmationTarget = BlacklistEntry | null
 
 const EMPTY_FORM = {
   ipAddress: '',
@@ -24,6 +25,8 @@ export default function IPManagementPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [confirmationTarget, setConfirmationTarget] = useState<ConfirmationTarget>(null)
 
   const blocklist = useApi(() => fetchBlacklistEntries(100, 'BLOCKLIST'), POLL_INTERVAL)
   const whitelist = useApi(() => fetchBlacklistEntries(100, 'WHITELIST'), POLL_INTERVAL)
@@ -49,23 +52,17 @@ export default function IPManagementPage() {
       return
     }
 
-    const actionLabel = form.listType === 'BLOCKLIST' ? 'Block IP' : 'Whitelist IP'
-    const confirmed = window.confirm(
-      `${actionLabel} ${ipAddress}? This action will persist a management entry on the server.`,
-    )
-
-    if (!confirmed) return
-
-    setPendingAction(actionLabel)
+    setPendingAction(form.listType === 'BLOCKLIST' ? 'block' : 'whitelist')
     setError(null)
+    setNotice(null)
 
     try {
       await blockIpAddress(ipAddress, form.description, {
         listType: form.listType,
-        addedBy: 'analyst',
       })
       setForm(EMPTY_FORM)
       refreshLists()
+      setNotice(`${ipAddress} added to the ${form.listType.toLowerCase()}.`)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'The IP could not be saved for management.',
@@ -77,18 +74,14 @@ export default function IPManagementPage() {
 
   const handleDelete = async (entry: BlacklistEntry) => {
     const action = entry.list_type === 'BLOCKLIST' ? 'unblock' : 'remove from whitelist'
-    const confirmed = window.confirm(
-      `Confirm removing ${entryLabel(entry)} from the ${entry.list_type.toLowerCase()}?`,
-    )
-
-    if (!confirmed) return
-
     setPendingAction(action)
     setError(null)
+    setNotice(null)
 
     try {
       await deleteBlacklistEntry(entry.id)
       refreshLists()
+      setNotice(`${entryLabel(entry)} removed from the ${entry.list_type.toLowerCase()}.`)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'The management entry could not be removed.',
@@ -97,6 +90,8 @@ export default function IPManagementPage() {
       setPendingAction(null)
     }
   }
+
+  const requestDelete = (entry: BlacklistEntry) => setConfirmationTarget(entry)
 
   if (blocklist.loading && !blocklist.data) {
     return <LoadingState label="Loading IP management entries..." />
@@ -108,10 +103,13 @@ export default function IPManagementPage() {
 
   return (
     <div className="page-shell">
-      <header className="page-header">
+      <header className="page-header ip-page-header">
         <div>
           <p className="eyebrow">Threat Operations</p>
           <h1>IP Management</h1>
+          <p className="page-header-copy">
+            Control which sources can reach protected services. Changes are audited and enforced server-side.
+          </p>
         </div>
         <div className="page-header-kpis">
           <div className="mini-stat">
@@ -129,14 +127,24 @@ export default function IPManagementPage() {
         </div>
       </header>
 
-      <section className="neo-card ip-form-panel">
-        <h2 className="panel-title">Add IP</h2>
+      <section className="neo-card ip-form-panel" aria-labelledby="add-ip-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">New control</p>
+            <h2 className="panel-title" id="add-ip-title">Add an IP rule</h2>
+          </div>
+          <span className="form-hint">IPv4 and IPv6 supported</span>
+        </div>
         <form className="ip-form" onSubmit={handleSubmit}>
           <div className="field-row">
             <label>
-              <span>IP address</span>
+              <span>IP address <b aria-hidden="true">*</b></span>
               <input
+                id="managed-ip-address"
                 className="neo-input"
+                name="ipAddress"
+                autoComplete="off"
+                required
                 value={form.ipAddress}
                 onChange={(event) => setForm((current) => ({ ...current, ipAddress: event.target.value }))}
                 placeholder="203.0.113.10"
@@ -146,7 +154,9 @@ export default function IPManagementPage() {
             <label>
               <span>List</span>
               <select
+                id="managed-ip-list"
                 className="neo-input"
+                name="listType"
                 value={form.listType}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -164,7 +174,10 @@ export default function IPManagementPage() {
           <label>
             <span>Reason</span>
             <input
+              id="managed-ip-reason"
               className="neo-input"
+              name="description"
+              maxLength={500}
               value={form.description}
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
               placeholder="Repeated brute-force traffic"
@@ -172,9 +185,9 @@ export default function IPManagementPage() {
           </label>
 
           <div className="action-row">
-            <button className="neo-button" type="submit" disabled={pendingAction !== null}>
+            <button className="toolbar-button toolbar-button--primary" type="submit" disabled={pendingAction !== null}>
               <Plus size={16} />
-              {pendingAction === 'Block IP' || pendingAction === 'Whitelist IP'
+              {pendingAction === 'block' || pendingAction === 'whitelist'
                 ? 'Saving...'
                 : form.listType === 'BLOCKLIST'
                   ? 'Block IP'
@@ -183,13 +196,17 @@ export default function IPManagementPage() {
           </div>
         </form>
 
-        {error && <div className="inline-error">{error}</div>}
+        {error && <div className="inline-feedback inline-feedback--error" role="alert"><AlertTriangle size={15} />{error}</div>}
+        {notice && <div className="inline-feedback inline-feedback--success" role="status"><Check size={15} />{notice}</div>}
       </section>
 
       <div className="list-grid">
-        <section className="neo-card">
+        <section className="neo-card managed-list" aria-labelledby="blocklist-title">
           <div className="section-header">
-            <h2 className="panel-title">BLOCKLIST</h2>
+            <div>
+              <p className="eyebrow">Access control</p>
+              <h2 className="panel-title" id="blocklist-title">Blocklist</h2>
+            </div>
             <ShieldAlert size={18} className="section-icon danger" />
           </div>
           {blockEntries.length === 0 ? (
@@ -209,7 +226,7 @@ export default function IPManagementPage() {
                   </div>
                   <button
                     className="neo-button neo-button--danger"
-                    onClick={() => handleDelete(entry)}
+                    onClick={() => requestDelete(entry)}
                     disabled={pendingAction !== null}
                   >
                     <Trash2 size={16} />
@@ -221,9 +238,12 @@ export default function IPManagementPage() {
           )}
         </section>
 
-        <section className="neo-card">
+        <section className="neo-card managed-list" aria-labelledby="whitelist-title">
           <div className="section-header">
-            <h2 className="panel-title">WHITELIST</h2>
+            <div>
+              <p className="eyebrow">Trusted sources</p>
+              <h2 className="panel-title" id="whitelist-title">Whitelist</h2>
+            </div>
             <ShieldCheck size={18} className="section-icon success" />
           </div>
           {whiteEntries.length === 0 ? (
@@ -243,7 +263,7 @@ export default function IPManagementPage() {
                   </div>
                   <button
                     className="neo-button neo-button--danger"
-                    onClick={() => handleDelete(entry)}
+                    onClick={() => requestDelete(entry)}
                     disabled={pendingAction !== null}
                   >
                     <Trash2 size={16} />
@@ -255,6 +275,46 @@ export default function IPManagementPage() {
           )}
         </section>
       </div>
+
+      {confirmationTarget && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setConfirmationTarget(null)}>
+          <section
+            className="confirmation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button className="modal-close" type="button" aria-label="Close confirmation" onClick={() => setConfirmationTarget(null)}>
+              <X size={17} />
+            </button>
+            <div className="modal-icon"><AlertTriangle size={20} /></div>
+            <p className="eyebrow">Destructive action</p>
+            <h2 id="confirm-title">
+              {confirmationTarget.list_type === 'BLOCKLIST' ? 'Unblock this IP?' : 'Remove this trusted IP?'}
+            </h2>
+            <p>
+              <span className="mono">{entryLabel(confirmationTarget)}</span> will be removed from the {confirmationTarget.list_type.toLowerCase()}.
+              This takes effect after the server confirms the change.
+            </p>
+            <div className="modal-actions">
+              <button className="toolbar-button" type="button" onClick={() => setConfirmationTarget(null)}>Cancel</button>
+              <button
+                className="toolbar-button toolbar-button--danger"
+                type="button"
+                onClick={() => {
+                  const entry = confirmationTarget
+                  setConfirmationTarget(null)
+                  void handleDelete(entry)
+                }}
+              >
+                <Trash2 size={15} />
+                {confirmationTarget.list_type === 'BLOCKLIST' ? 'Unblock IP' : 'Remove from whitelist'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

@@ -40,15 +40,16 @@ export default function AlertDetail() {
   useEffect(() => {
     if (!id) return
     let cancelled = false
-    setLoading(true)
-    setNotFound(false)
-    setError(null)
     fetchAlert(id)
       .then((data) => {
-        if (!cancelled) setAlert(data)
+        if (cancelled) return
+        setAlert(data)
+        setNotFound(false)
+        setError(null)
       })
       .catch((err: unknown) => {
         if (cancelled) return
+        setNotFound(false)
         const message =
           err instanceof Error ? err.message : 'Unknown error occurred'
         if (message === 'Alert not found') setNotFound(true)

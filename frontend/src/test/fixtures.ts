@@ -262,6 +262,9 @@ export const blacklistEntryFixture: BlacklistEntry = {
   ip_range_end: null,
   region_code: null,
   description: 'Blocked from alert #1',
+  list_type: 'BLOCKLIST',
+  added_by: 'analyst',
+  expires_at: null,
   created_at: '2026-09-08T11:00:00Z',
   updated_at: '2026-09-08T11:00:00Z',
 }
