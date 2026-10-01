@@ -495,6 +495,13 @@ def create_alert_if_new(db: Session, alert_data: dict) -> Alert | None:
     severity or confidence.  ``title`` and ``description`` keep the narrative of
     the detection that first raised the alert; the aggregated numbers live in
     ``evidence``.
+
+    The merge path deliberately only *flushes* (rather than committing): a
+    burst of repeated detections - the overwhelmingly common case during an
+    active attack - is persisted as one transaction batch by the caller's
+    commit.  The creation path keeps its own commit because callers consume
+    the new alert immediately (enrichment, session linkage), and an
+    uncommitted row cannot safely feed those follow-ups.
     """
 
     # Base query
@@ -518,6 +525,14 @@ def create_alert_if_new(db: Session, alert_data: dict) -> Alert | None:
     if existing is not None:
         # A repeated detection of the same attack: refresh the alert it belongs
         # to instead of discarding the new evidence.
+        existing = db.get(Alert, existing.id, populate_existing=True)
+
+        if existing is None:
+            # The open alert vanished between the lookup and the merge (another
+            # request resolved it).  Drop this merge rather than resurrect it.
+            db.rollback()
+            return None
+
         existing.evidence = merge_alert_evidence(
             existing.evidence,
             alert_data.get("evidence"),
@@ -536,7 +551,12 @@ def create_alert_if_new(db: Session, alert_data: dict) -> Alert | None:
         if not existing.mitre_technique and alert_data.get("mitre_technique"):
             existing.mitre_technique = alert_data["mitre_technique"]
 
-        db.commit()
+        # Flush only: committing here would expire the session on every repeated
+        # detection and serialize + fsync on every row.  Seen-but-uncommitted
+        # merges stay in this transaction and are durable once the caller's
+        # commit lands.  ``db.get`` above re-reads rather than trusting the
+        # first SELECT, so concurrent readers always fold into fresh state.
+        db.flush()
         db.refresh(existing)
 
         # No new alert was created.  The merged detection is fully represented

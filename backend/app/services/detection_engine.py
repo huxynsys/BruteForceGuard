@@ -238,4 +238,13 @@ class DetectionEngine:
                 )
             )
 
+        try:
+            # Batch-persist any alert merges folded during this run: repeated
+            # detections flush into the transaction and land here in one commit,
+            # so an active attack costs one durable write per ingested event
+            # instead of one per repeated detection.
+            self.detection_service.db.commit()
+        except Exception:
+            logger.exception("Detector merge commit failed for event")
+
         return results
