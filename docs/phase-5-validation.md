@@ -151,10 +151,42 @@ Hardening implemented:
 - **Timeout on the event timeline** — both automatic expiry during lookup
   and `close_inactive_sessions()` compare event timestamps.
 - **Lifecycle** — create → update (same session) → manual `POST /{id}/close`
-  → automatic inactivity close; statistics via `GET .../stats/active`.
+  → automatic inactivity close; every close path finalizes `ended_at`
+  (event timeline for automatic expiry, wall clock for manual close);
+  statistics via `GET .../stats/active`.
+- **Alert → session linkage** — `AttackSessionIntegrationService.process_alert`
+  stamps the correlated session's id onto `Alert.session_id` (the only
+  alert → session link in the schema), which is what `GET /events/groups`
+  reports as per-group `session_ids`.
 
 
-## 10. Results
+## 10. Alert explainability
+
+Every alert response (`GET /api/v1/alerts/`, `GET /api/v1/alerts/{id}`,
+`PATCH /api/v1/alerts/{id}`) carries an `explanation` object built by
+`app/services/alert_explanation.py` from structured data only:
+
+- **Fields**: `detection_type`, `rule_name`, `threshold`/`threshold_label`,
+  `observed_value`, `window_seconds`, `failure_count`, `success_count`,
+  `source_ip`, `username`, `service`, `reason`, `detected_at`, `text`.
+- **`text` is generated, never hard-coded**: the sentence is composed from the
+  fields above (counts, service, source IP, target user, humanized window,
+  threshold comparison), e.g.
+  *"37 failed SSH authentication attempts from 192.168.1.50 against user admin
+  within 5 minutes exceeded the configured threshold of 5."* Different inputs
+  always produce different wording (`test_alert_explanation.py`).
+- **Window precedence**: `evidence.window_seconds` (what the detector actually
+  used) wins over the current configuration; unknown alert types still get an
+  explanation with `rule_name`/`threshold` = `null` instead of fabricated
+  values.
+- **Safety**: only allow-listed scalar evidence keys are read — raw collector
+  payloads, credentials, tokens and exception text can never enter the
+  explanation (pinned by `test_explanation_never_leaks_non_engine_evidence`).
+- The Alert Details panel renders `explanation.text` as the primary "why" plus
+  the `reason` row, and falls back to the recorded rule context when the field
+  is absent.
+
+## 11. Results
 
 - `python -m compileall app tests` → exit 0 (no syntax errors).
 - `pytest -v` → **74 passed, 0 failed** (warnings are benign: starlette
@@ -166,7 +198,7 @@ Hardening implemented:
   `failed_success` sessions; 6th failure did not duplicate the alert;
   `/close` and `/stats/active` returned correct data.
 
-## 11. Known limitations
+## 12. Known limitations
 
 1. Alert deduplication is alert-key based, not session-aware (see §7): a
    repeated detection refreshes the open alert instead of raising a new one,

@@ -1,0 +1,162 @@
+[33mcommit d671fa77c01aeeef17d8b510a137c1483a3a0b8e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Thu Oct 1 16:42:30 2026 +0500
+
+    perf: batch alert-merge writes instead of committing every duplicate detection
+
+[33mcommit 1d9721540bb4d0fddbd268fae453320cb68a68a1[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Thu Oct 1 14:15:03 2026 +0500
+
+    abc
+
+[33mcommit e1efc72fe1d3eec601cc805c29c0935a7800edfb[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Sun Sep 27 17:26:28 2026 +0500
+
+     improve the detection engine and ui
+
+[33mcommit 9801986c4a42381f41b516cfe9b79c49151f2f97[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Sun Sep 27 00:10:38 2026 +0500
+
+     ip manaagement added
+
+[33mcommit d5740fc19f14d85fc2574300de0a5fd6bd412d0d[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Sat Sep 26 12:13:50 2026 +0500
+
+    The previous task, implementing the Alert Details side panel/modal for BruteForceGuard, has been completed and verified.
+
+[33mcommit 3b613044373066259c8a00d1565f559b7d0f82bd[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Fri Sep 25 20:20:37 2026 +0500
+
+    adding alert details side pannel
+
+[33mcommit 26b34a7a438b31fed2b230656be7a616447019cf[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Thu Sep 24 19:41:43 2026 +0500
+
+    did many things (refactoring)
+
+[33mcommit 43a4ec29fab931ed0735040a482550d53c7a1768[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Mon Sep 21 22:32:51 2026 +0500
+
+    Dashboard architecture: Convert Dashboard into a summary
+
+[33mcommit ab79b0e04cb80ca113cad51cfb17880fcbcae96c[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Sun Sep 20 18:28:49 2026 +0500
+
+    phase 9 completed
+
+[33mcommit da513c0e6ce6fcdea9d047bf239955ce50298d9f[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Sat Sep 19 16:47:27 2026 +0500
+
+    Phase 9.1-9.6 complete: production deployment & productionization
+    
+    9.1 Production Configuration:
+    - Centralized config in app/core/config.py with pydantic-settings
+    - APP_ENV, DATABASE_URL, CORS_ALLOWED_ORIGINS, LOG_LEVEL validation
+    - Production-mode validation (rejects wildcards, non-PostgreSQL, missing origins)
+    - Centralized intelligence tunables (PRIVILEGED_USERS, SERVICE_SENSITIVITY, risk weights/boundaries)
+    - app/core/logging.py applies LOG_LEVEL
+    
+    9.2 Docker Hardening:
+    - Non-root execution (UID 10001) in backend/Dockerfile
+    - Alembic-only schema management (removed create_all from lifespan)
+    - .dockerignore files (root, backend, frontend)
+    - Healthcheck in backend image
+    
+    9.3 Frontend Production Build:
+    - Configurable API base URL (VITE_API_BASE_URL)
+    - Optimized vite.config.ts with manual chunk splitting
+    - Main bundle: 109KB (React 217KB, Charts 363KB separate)
+    
+    9.4 Reverse Proxy:
+    - nginx/nginx.conf: serves SPA, proxies /api/* and /health*, security headers
+    - nginx/Dockerfile: two-stage build (Node 22 → nginx:1.27-alpine)
+    - docker-compose.prod.yml: only proxy publishes port 8080
+    
+    9.5 API Security:
+    - CORS uses settings.cors_origins (configurable, validated)
+    - Generic 500 handler (sanitizes tracebacks/DSN/paths)
+    - Docs disabled in production (docs_url=None)
+    
+    9.6 Health & Readiness:
+    - GET /health: liveness, no DB access
+    - GET /health/ready: validates config + DB, returns 503 on failure
+    
+    Tests:
+    - Backend: 343 passed (45 new: production_config, health, api_security, deployment_config)
+    - Frontend: 74 passed (5 new: client.test.ts for API base URL resolution)
+    
+    Deployment validation:
+    - All services healthy, port isolation confirmed
+    - Readiness returns 503 when PostgreSQL down, 200 after recovery
+    - CORS correctly allows configured origins, blocks unconfigured
+    - Security headers present (CSP, X-Frame-Options, etc.)
+    - Backend/postgres restart recovery verified
+
+[33mcommit cd9fb5e564f091c140078070e1c2309e732aeb5d[m
+Author: huxynsys <lalhussain867@gmail.com>
+Date:   Fri Sep 18 01:17:47 2026 +0500
+
+    phase 8: complete - testing, performance & reliability
+
+[33mcommit ec89278df626ceddd5648f3ca213f0b7a6223ef8[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Sat Sep 12 18:58:29 2026 +0500
+
+    phase 7: finally complete
+
+[33mcommit c6d696e656106eb98706556556b0bdbd3ca0bae3[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Sat Sep 12 17:34:56 2026 +0500
+
+    phase 7 f
+
+[33mcommit 396d0e89015ad68aa5f25f42de73c0aac4aa0441[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Sat Sep 12 00:41:31 2026 +0500
+
+    phase:7 complete
+
+[33mcommit bb9a8f237231f5ddbd7f5d92f1514b4c481c764b[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Thu Sep 10 14:28:25 2026 +0500
+
+    phase 6: complete
+
+[33mcommit becb87c7d9b5c329fdaaf2fc0243b67cd0af040e[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Thu Sep 10 00:58:49 2026 +0500
+
+    Phase 6: Frontend
+
+[33mcommit b146e7365532fc5bd613c24f61af574378d83af2[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Tue Sep 8 22:38:49 2026 +0500
+
+    phase 5 complete: validation hardening, per-type correlation keys, evidence-seeded sessions, 74 tests
+
+[33mcommit a9f0191963919500a8418fdf154965ab88afd59c[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Tue Sep 8 20:20:27 2026 +0500
+
+     phase 5: validate detection and integrate attack sessions
+
+[33mcommit ca48e427b9d9b86a56e76d7ac3a5f9cf8ef2e3c1[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Sun Sep 6 22:22:36 2026 +0500
+
+    phase 4 complete
+
+[33mcommit 3abf46efa246d6469353125be35b1cc23a85a793[m
+Author: Hussain804 <my.laptop.pc804@gmail.com>
+Date:   Sun Sep 6 16:43:29 2026 +0500
+
+    initial commit

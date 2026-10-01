@@ -228,6 +228,7 @@ export default function AlertDetailPanel({
   // ------------------------------------------------------------------
   const attempts = failedAttempts(alert)
   const rule = alert.detection_rule ?? null
+  const explanation = alert.explanation ?? null
   const recordedWindow = numericEvidence(alert.evidence?.window_seconds)
   const windowSeconds = recordedWindow ?? rule?.window_seconds ?? null
   const reached = thresholdReached(attempts, rule?.threshold)
@@ -381,6 +382,17 @@ export default function AlertDetailPanel({
           </Section>
 
           <Section title="Detection explanation">
+            {explanation ? (
+              // Sentence generated server-side from the structured fields
+              // below - never composed (or hard-coded) in the browser.
+              <p className="alert-panel__explanation">{explanation.text}</p>
+            ) : (
+              <p className="text-muted alert-panel__note">
+                No structured explanation was generated for this alert; only
+                the recorded rule context and evidence below are available.
+              </p>
+            )}
+
             {rule ? (
               <p className="alert-panel__requirement">{rule.requirement}</p>
             ) : (
@@ -427,6 +439,13 @@ export default function AlertDetailPanel({
                 {formatDuration(windowSeconds)}
                 {windowSeconds !== null ? ` (${windowSeconds} s)` : ''}
               </dd>
+
+              {explanation && (
+                <>
+                  <dt>Reason</dt>
+                  <dd>{explanation.reason}</dd>
+                </>
+              )}
 
               <dt>Why the rule triggered</dt>
               <dd>{alert.description}</dd>

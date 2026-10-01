@@ -69,6 +69,33 @@ export interface AlertDetectionRule {
   requirement: string
 }
 
+/**
+ * Structured explanation returned with every alert (`explanation`).
+ *
+ * Generated server-side from the alert's recorded evidence plus the detection
+ * rule configuration; `text` is the human-readable sentence composed from the
+ * fields below (never hard-coded), so the panel never has to - and must not -
+ * invent its own wording or thresholds.
+ */
+export interface AlertExplanation {
+  detection_type: string
+  rule_name: string | null
+  threshold: number | null
+  threshold_label: string | null
+  observed_value: number | null
+  window_seconds: number | null
+  failure_count: number | null
+  success_count: number
+  source_ip: string | null
+  username: string | null
+  service: string | null
+  reason: string
+  /** Detection timestamp (ISO 8601). */
+  detected_at: string
+  /** Human-readable sentence generated from the structured fields above. */
+  text: string
+}
+
 /** Phase 7 threat-intelligence payload persisted on an alert. */
 export interface AlertThreatIntel {
   known: boolean
@@ -116,6 +143,8 @@ export interface Alert {
   created_at: string
   /** Detection-rule context behind `alert_type` (see `AlertDetectionRule`). */
   detection_rule?: AlertDetectionRule | null
+  /** Generated "why this alert exists" context (see `AlertExplanation`). */
+  explanation?: AlertExplanation | null
   // Phase 7 intelligence enrichment
   risk_score: number
   risk_level: string

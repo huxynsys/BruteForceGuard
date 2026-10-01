@@ -10,8 +10,10 @@ The alerts page is the single authoritative detailed view of detections, so:
 * ``PATCH /api/v1/alerts/{id}``  persist an analyst triage transition
 
 Every response also carries ``detection_rule`` (the threshold/window/requirement
-behind the alert type, from the engine configuration) so the alert-details
-panel can explain a detection without duplicating thresholds in the browser.
+behind the alert type, from the engine configuration) and ``explanation`` (the
+structured, generated "why this alert exists" context - see
+``app.services.alert_explanation``) so the alert-details panel can explain a
+detection without duplicating thresholds in the browser.
 
 Note: ``/stats`` is declared before ``/{alert_id}`` so the static path is not
 captured by the dynamic one.
@@ -31,6 +33,7 @@ from app.schemas.alert import (
     AlertStatus,
     AlertStatusUpdate,
 )
+from app.services.alert_explanation import build_alert_explanation
 from app.services.alert_service import AlertService
 
 
@@ -43,14 +46,17 @@ SEARCH_DESCRIPTION = "Case-insensitive substring match on source IP or username"
 
 
 def _with_detection_rule(alert: Alert) -> AlertResponse:
-    """``AlertResponse`` plus the detection rule that produced the alert.
+    """``AlertResponse`` plus the detection rule and generated explanation.
 
     The rule context (threshold, window, human-readable requirement) is derived
     from the engine configuration in ``app.core.detection_config`` - the same
     values ingestion runs with - so the investigation panel can explain why a
-    rule triggered without the browser duplicating detection thresholds.  It is
-    computed per response (no extra query, no new endpoint) and is ``None`` for
-    alert types the engine no longer knows.
+    rule triggered without the browser duplicating detection thresholds.  The
+    ``explanation`` combines that rule context with the alert's recorded
+    evidence into structured fields plus a generated human-readable sentence.
+    Both are computed per response (no extra query, no new endpoint); the rule
+    is ``None`` for alert types the engine no longer knows, while the
+    explanation still falls back to the recorded evidence alone.
     """
 
     response = AlertResponse.model_validate(alert)
@@ -58,6 +64,8 @@ def _with_detection_rule(alert: Alert) -> AlertResponse:
     rule = get_detection_rule(alert.alert_type, alert.service)
     if rule is not None:
         response.detection_rule = AlertDetectionRule(**rule)
+
+    response.explanation = build_alert_explanation(alert, rule)
 
     return response
 

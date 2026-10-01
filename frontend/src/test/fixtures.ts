@@ -1,6 +1,7 @@
 import type {
   Alert,
   AlertDetectionRule,
+  AlertExplanation,
   AttackSession,
   AuthEvent,
   BlacklistEntry,
@@ -33,6 +34,29 @@ export const detectionRuleFixture: AlertDetectionRule = {
     '5 failed authentication attempts against the same account from the same source IP within 300 seconds.',
 }
 
+/**
+ * Structured explanation returned with every alert (`explanation`).
+ *
+ * Mirrors `build_alert_explanation()` in the backend for `alertFixture`'s
+ * recorded evidence, so tests exercise the same shape the API produces.
+ */
+export const alertExplanationFixture: AlertExplanation = {
+  detection_type: 'single_account_bruteforce',
+  rule_name: 'Single Account Brute Force',
+  threshold: 5,
+  threshold_label: 'Failed attempts against the same account',
+  observed_value: 10,
+  window_seconds: 300,
+  failure_count: 10,
+  success_count: 0,
+  source_ip: '192.168.1.44',
+  username: 'admin',
+  service: 'ssh',
+  reason: '10 failures exceeded the threshold of 5.',
+  detected_at: '2026-09-08T10:42:00Z',
+  text: '10 failed SSH authentication attempts from 192.168.1.44 against user admin within 5 minutes exceeded the configured threshold of 5.',
+}
+
 export const alertFixture: Alert = {
   id: 1,
   alert_type: 'single_account_bruteforce',
@@ -48,6 +72,7 @@ export const alertFixture: Alert = {
   evidence: { failure_count: 10, window_seconds: 300 },
   created_at: '2026-09-08T10:42:00Z',
   detection_rule: detectionRuleFixture,
+  explanation: alertExplanationFixture,
   // Phase 7 intelligence
   risk_score: 72,
   risk_level: 'high',
@@ -122,6 +147,17 @@ export const criticalAlertFixture: Alert = {
   confidence: 90,
   source_ip: '10.0.0.8',
   username: 'administrator',
+  explanation: {
+    ...alertExplanationFixture,
+    detection_type: 'failed_then_success',
+    rule_name: 'Failed -> Success',
+    threshold: 3,
+    threshold_label: 'Failed attempts before the successful login',
+    source_ip: '10.0.0.8',
+    username: 'administrator',
+    reason: '10 failures exceeded the threshold of 3.',
+    text: '10 failed SSH authentication attempts from 10.0.0.8 against user administrator within 5 minutes exceeded the configured threshold of 3.',
+  },
 }
 
 export const sessionFixture: AttackSession = {

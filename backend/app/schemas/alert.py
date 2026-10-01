@@ -42,6 +42,32 @@ class AlertDetectionRule(BaseModel):
     requirement: str
 
 
+class AlertExplanation(BaseModel):
+    """Structured "why this alert exists" context attached to every alert.
+
+    ``text`` is generated server-side from the fields below (never hard-coded)
+    so the analyst-facing sentence always matches the numbers that were
+    actually observed.  Only engine-recorded, non-sensitive values are
+    included - never raw collector payloads, credentials, tokens or internal
+    error details.
+    """
+
+    detection_type: str
+    rule_name: str | None
+    threshold: int | None
+    threshold_label: str | None
+    observed_value: int | None
+    window_seconds: int | None
+    failure_count: int | None
+    success_count: int
+    source_ip: str | None
+    username: str | None
+    service: str | None
+    reason: str
+    detected_at: datetime
+    text: str
+
+
 class AlertResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +93,9 @@ class AlertResponse(BaseModel):
 
     # The detection rule that produced this alert (never analyst-supplied).
     detection_rule: AlertDetectionRule | None = None
+
+    # Structured, generated explanation of why the alert exists.
+    explanation: AlertExplanation | None = None
 
     # Phase 7 intelligence
     risk_score: int = 0

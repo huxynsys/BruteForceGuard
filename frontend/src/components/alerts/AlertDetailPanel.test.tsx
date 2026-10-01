@@ -140,6 +140,47 @@ describe('AlertDetailPanel metadata and source', () => {
 })
 
 describe('AlertDetailPanel detection explanation', () => {
+  it('shows the generated explanation sentence from the backend', () => {
+    renderPanel()
+
+    const detection = screen.getByRole('region', {
+      name: 'Detection explanation',
+    })
+
+    // The sentence is generated server-side from the structured fields and
+    // rendered verbatim - the browser never composes (or hard-codes) it.
+    expect(
+      within(detection).getByText(
+        '10 failed SSH authentication attempts from 192.168.1.44 against user admin within 5 minutes exceeded the configured threshold of 5.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(detection).getByText('10 failures exceeded the threshold of 5.'),
+    ).toBeInTheDocument()
+  })
+
+  it('falls back to the recorded rule context when no explanation exists', () => {
+    renderPanel({ ...alertFixture, explanation: null })
+
+    const detection = screen.getByRole('region', {
+      name: 'Detection explanation',
+    })
+
+    expect(
+      screen.queryByText(/failed SSH authentication attempts from/),
+    ).not.toBeInTheDocument()
+    expect(
+      within(detection).getByText(
+        /5 failed authentication attempts against the same account/,
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(detection).getByText(
+        /No structured explanation was generated/i,
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('explains the rule, the threshold and the recorded evidence', () => {
     renderPanel()
 
