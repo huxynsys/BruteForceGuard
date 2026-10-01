@@ -66,6 +66,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
   distinct_users: 'Distinct accounts',
   distinct_source_ips: 'Distinct source IPs',
   active_intervals: 'Active intervals',
+  occurrence_count: 'Detections recorded',
   successful_login: 'Successful login observed',
   first_seen: 'First seen',
   last_seen: 'Last seen',

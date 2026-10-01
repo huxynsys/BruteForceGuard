@@ -166,6 +166,24 @@ describe('AlertDetailPanel detection explanation', () => {
     expect(within(detection).getByText('Recorded failures')).toBeInTheDocument()
   })
 
+  it('shows how many detections were folded into the alert', () => {
+    renderPanel({
+      ...alertFixture,
+      evidence: { failure_count: 10, occurrence_count: 3 },
+    })
+
+    const detection = screen.getByRole('region', {
+      name: 'Detection explanation',
+    })
+
+    // Repeated detections update one alert instead of raising duplicates; the
+    // merged count makes that visible to the analyst.
+    expect(
+      within(detection).getByText('Detections recorded'),
+    ).toBeInTheDocument()
+    expect(within(detection).getByText('3')).toBeInTheDocument()
+  })
+
   it('reports a below-threshold detection from the recorded numbers', () => {
     renderPanel({ ...alertFixture, evidence: { failure_count: 2 } })
 

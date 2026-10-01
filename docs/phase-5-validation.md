@@ -81,12 +81,32 @@ the same `alert_type + source_ip + username + service` key exists.
 
 Verified: 5 failures → 1 alert; 6th and 7th failures → still exactly 1 alert.
 
+**A suppressed duplicate is not discarded — it updates the alert it belongs
+to.** The open alert is refreshed in place with the new detection's scope
+(`test_alert_deduplication.py`):
+
+| Evidence | Merge rule |
+|---|---|
+| `failure_count` / `failed_attempts`, `distinct_users`, `distinct_source_ips`, `active_intervals` | keep the largest window-scoped value (never shrink) |
+| `usernames`, `source_ips`, `services`, `intervals`, `failure_timestamps` | union, de-duplicated and capped |
+| `first_seen` / `last_seen` | earliest / latest timestamp |
+| `successful_login` | once true it never reverts |
+| `occurrence_count`, `occurrences` | every detection is counted and its raw scope kept (newest 10, bounded) |
+
+`severity` and `confidence` escalate only (a weaker repeat never downgrades an
+alert), `title`/`description` keep the narrative of the detection that first
+raised the alert, and the aggregated numbers live in `evidence`. The analyst
+UI renders the merge count as *Detections recorded*.
+
 **Documented behaviour / limitation (Section 5.12):** deduplication is keyed
 on the open alert only. A later, genuinely new attack of the same type from
-the same source against the same account is suppressed until the original
-alert is closed. The intended future behaviour is cooperation between alert
-and attack-session lifecycle (new session ⇒ new alert); Phase 5 keeps the
-current behaviour and documents it here.
+the same source against the same account updates that alert until it is
+closed (`open → resolved` / `false_positive` makes the next detection raise a
+fresh alert instead of disappearing into a finished case). The intended future
+behaviour is cooperation between alert and attack-session lifecycle (new
+session ⇒ new alert); Phase 5 keeps the current behaviour and documents it
+here. `evidence.occurrences` now records each contributing detection's raw
+window, which is the data a session-aware split would need.
 
 ## 8. Correlation
 
@@ -148,7 +168,10 @@ Hardening implemented:
 
 ## 11. Known limitations
 
-1. Alert deduplication is alert-key based, not session-aware (see §7).
+1. Alert deduplication is alert-key based, not session-aware (see §7): a
+   repeated detection refreshes the open alert instead of raising a new one,
+   and the merged detections are preserved in `evidence.occurrences` (newest
+   10).
 2. Confidence values are heuristic, not statistically calibrated.
 3. `detection-rules/*.yaml` files are declarative documentation; thresholds
    live in Python (`detection_config.py`).
