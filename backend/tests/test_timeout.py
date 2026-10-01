@@ -45,7 +45,10 @@ def test_close_inactive_sessions_closes_stale_sessions(
 
     assert closed_count == 1
     assert stale.status == "closed"
+    # Inactivity closes record the session's last event timestamp.
+    assert stale.ended_at == stale.last_seen_at
     assert fresh.status == "active"
+    assert fresh.ended_at is None
 
 
 def test_recent_session_is_not_closed(db, session_factory):
@@ -88,6 +91,8 @@ def test_timeout_side_effect_when_searching(db, session_factory):
 
     assert found is None
     assert session.status == "closed"
+    # The lazy timeout close is stamped on the event timeline too.
+    assert session.ended_at == session.last_seen_at
 
 
 def test_in_window_session_is_returned(db, session_factory):

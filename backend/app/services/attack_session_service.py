@@ -41,7 +41,8 @@ class AttackSessionIntegrationService:
         Connect a detection alert to an attack session.
 
         Flow: alert -> map to correlation key -> find active session
-        -> update when found, otherwise create.
+        -> update when found, otherwise create -> stamp the session id
+        back onto the alert (``Alert.session_id``).
         """
 
         session_type = detection_type
@@ -93,7 +94,7 @@ class AttackSessionIntegrationService:
                 detection_type,
             )
 
-            return self.session_service.update_session(
+            session = self.session_service.update_session(
                 session=session,
                 event_timestamp=event.timestamp,
                 source_ip=source_ip,
@@ -105,20 +106,34 @@ class AttackSessionIntegrationService:
                 additional_usernames=additional_usernames,
             )
 
-        logger.info(
-            "Attack session created: type=%s detection=%s",
-            session_type,
-            detection_type,
-        )
+        else:
 
-        return self.session_service.create_session(
-            session_type=session_type,
-            severity=alert.severity,
-            event_timestamp=event.timestamp,
-            source_ip=source_ip,
-            username=username,
-            service=service,
-            detection_type=detection_type,
-            additional_source_ips=additional_source_ips,
-            additional_usernames=additional_usernames,
-        )
+            logger.info(
+                "Attack session created: type=%s detection=%s",
+                session_type,
+                detection_type,
+            )
+
+            session = self.session_service.create_session(
+                session_type=session_type,
+                severity=alert.severity,
+                event_timestamp=event.timestamp,
+                source_ip=source_ip,
+                username=username,
+                service=service,
+                detection_type=detection_type,
+                additional_source_ips=additional_source_ips,
+                additional_usernames=additional_usernames,
+            )
+
+        # Stamp the correlated session back onto the alert.  Alert.session_id
+        # is the only alert -> session link in the schema: the grouped-events
+        # endpoint derives each group's session_ids from it, so without this
+        # write sessions exist but nothing ever points at them.  If correlation
+        # failed above, the alert stays unlinked rather than mislinked.
+        if session is not None and alert.session_id != session.id:
+            alert.session_id = session.id
+            self.db.commit()
+            self.db.refresh(alert)
+
+        return session

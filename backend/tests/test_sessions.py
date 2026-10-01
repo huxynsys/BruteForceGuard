@@ -56,6 +56,8 @@ def test_list_attack_sessions(client):
     assert session["services"] == ["ssh"]
     assert session["detection_types"] == ["single_account"]
     assert session["started_at"] == session["last_seen_at"]
+    # Active sessions have not ended yet.
+    assert session["ended_at"] is None
 
 
 def test_get_attack_session_by_id(client):
@@ -74,13 +76,15 @@ def test_close_attack_session(client):
 
     session_id = client.get("/api/v1/attack-sessions/").json()[0]["id"]
 
-    # Session starts active.
+    # Session starts active and has not ended yet.
     assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["status"] == "active"
+    assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["ended_at"] is None
 
     # Close it.
     response = client.post(f"/api/v1/attack-sessions/{session_id}/close")
     assert response.status_code == 200
     assert response.json()["status"] == "closed"
+    assert response.json()["ended_at"] is not None
 
     # It stays closed.
     assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["status"] == "closed"

@@ -104,3 +104,43 @@ def test_full_pipeline_end_to_end(client):
     assert stats["total_events"] == 2
     assert stats["unique_source_ips"] == 1
     assert stats["unique_usernames"] == 1
+
+
+def test_alert_session_linkage_and_group_context(client):
+    """Every alert a detection creates carries the id of the session it was
+    correlated into, and the grouped-events endpoint surfaces it.
+
+    ``Alert.session_id`` is the only alert -> session link in the schema;
+    before it was stamped, sessions existed but ``session_ids`` on every
+    group was always empty.
+    """
+    base = datetime.now()
+
+    for i in range(5):
+        _post_event(client, (base + timedelta(seconds=i * 5)).isoformat() + "Z")
+
+    alerts = client.get("/api/v1/alerts/").json()
+    sessions = client.get("/api/v1/attack-sessions/").json()
+
+    assert len(alerts) == 1
+    assert len(sessions) == 1
+    assert alerts[0]["session_id"] == sessions[0]["id"]
+
+    groups = client.get("/api/v1/events/groups").json()
+    assert groups["total"] == 1
+    assert groups["items"][0]["session_ids"] == [sessions[0]["id"]]
+
+    # The link survives a second detection folding into the same session.
+    _post_event(
+        client,
+        (base + timedelta(seconds=40)).isoformat() + "Z",
+        result="success",
+    )
+
+    session_id = sessions[0]["id"]
+    alert_types = {
+        a["alert_type"]: a
+        for a in client.get("/api/v1/alerts/").json()
+    }
+    assert "failed_then_success" in alert_types
+    assert alert_types["failed_then_success"]["session_id"] == session_id

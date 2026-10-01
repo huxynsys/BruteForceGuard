@@ -250,3 +250,33 @@ def test_evidence_is_kept_unique_per_session(db):
     assert session.usernames == ["admin"]
     assert session.services == ["ssh"]
     assert session.detection_types == ["single_account"]
+
+
+def test_process_alert_stamps_alert_with_session_id(db):
+    """Alert.session_id is the only alert -> session link in the schema:
+    process_alert must stamp it on both the create and the update path,
+    because the grouped-events endpoint derives session_ids from it."""
+    timestamp = datetime.now(timezone.utc)
+    service = AttackSessionIntegrationService(db)
+
+    # Create path: no session exists yet.
+    alert1 = _make_alert(db)
+    session1 = service.process_alert(
+        _make_event(db, timestamp),
+        alert1,
+        "single_account",
+    )
+
+    assert session1 is not None
+    assert alert1.session_id == session1.id
+
+    # Update path: a second alert folds into the same session.
+    alert2 = _make_alert(db)
+    session2 = service.process_alert(
+        _make_event(db, timestamp + timedelta(seconds=60)),
+        alert2,
+        "single_account",
+    )
+
+    assert session2.id == session1.id
+    assert alert2.session_id == session1.id

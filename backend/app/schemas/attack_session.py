@@ -24,3 +24,7 @@ class AttackSessionResponse(BaseModel):
     risk_level: str = "informational"
     risk_factors: list[dict] | None = None
     behavioral_profile: dict | None = None
+
+    # Session finalization: set when the session closes (manual close or
+    # inactivity timeout), None while it is active.
+    ended_at: datetime | None = None

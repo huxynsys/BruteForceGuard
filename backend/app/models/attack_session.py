@@ -104,3 +104,13 @@ class AttackSession(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+    #: Set when the session closes, ``None`` while it is active.  Inactivity
+    #: closes (lookup-timeout and ``close_inactive_sessions()``) record the
+    #: session's last event timestamp - the event timeline drives every
+    #: automatic close - while a manual ``POST /{id}/close`` records the
+    #: wall-clock moment the analyst closed it.  Never overwritten once set.
+    ended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )

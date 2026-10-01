@@ -61,6 +61,8 @@ class SessionService:
 
                 if elapsed > timeout_seconds:
                     session.status = "closed"
+                    if session.ended_at is None:
+                        session.ended_at = session.last_seen_at
                     continue
 
             # Match source IP when provided.
@@ -128,6 +130,8 @@ class SessionService:
 
                 if elapsed > timeout_seconds:
                     session.status = "closed"
+                    if session.ended_at is None:
+                        session.ended_at = session.last_seen_at
                     continue
 
             matched = True
@@ -333,6 +337,11 @@ class SessionService:
 
         session.status = "closed"
 
+        # A manual close is an analyst action on the wall clock; automatic
+        # timeout closes instead record the session's last event timestamp.
+        if session.ended_at is None:
+            session.ended_at = datetime.now(timezone.utc)
+
         self.db.commit()
         self.db.refresh(session)
 
@@ -367,6 +376,8 @@ class SessionService:
 
             if elapsed > timeout_seconds:
                 session.status = "closed"
+                if session.ended_at is None:
+                    session.ended_at = session.last_seen_at
                 closed_count += 1
 
         self.db.commit()
