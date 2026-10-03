@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   LifeBuoy,
   Shield,
+  History,
 } from 'lucide-react'
 import Topbar from './Topbar'
 
@@ -48,6 +49,16 @@ export default function Layout() {
         <div className="sidebar-separator" role="presentation" />
 
         <div className="nav-group-label">Workspace</div>
+
+        <NavLink
+          to="/audit"
+          className={({ isActive }) =>
+            `nav-link${isActive ? ' active' : ''}`
+          }
+        >
+          <History size={17} aria-hidden="true" />
+          Audit Log
+        </NavLink>
 
         <NavLink
           to="/settings"

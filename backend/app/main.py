@@ -18,6 +18,7 @@ from app.api.attack_sessions import router as attack_sessions_router
 from app.api.dashboard import router as dashboard_router  # Phase 6
 from app.api.health import router as health_router  # Phase 9.6
 from app.api.intelligence import router as intelligence_router  # Phase 7
+from app.api.audit import router as audit_router  # Security audit log
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.database import Base, engine
@@ -25,6 +26,7 @@ from app.models.auth_event import AuthEvent
 from app.models.alert import Alert
 from app.models.attack_session import AttackSession
 from app.models.threat_indicator import ThreatIndicator
+from app.models.audit_log import SecurityAuditLog  # noqa: F401 (register table)
 
 configure_logging()
 
@@ -124,4 +126,5 @@ app.include_router(alerts_router)
 app.include_router(attack_sessions_router)
 app.include_router(dashboard_router)  # Phase 6
 app.include_router(intelligence_router)  # Phase 7
+app.include_router(audit_router)  # Security audit log (read-only)
 app.include_router(blacklist_router, prefix="/api/v1")

@@ -322,4 +322,58 @@ export interface BlacklistEntryCreate {
   expires_at?: string | null
 }
 
+/**
+ * Canonical actions recorded in `security_audit_logs`.
+ *
+ * The backend writes these server-side (there is no audit write endpoint);
+ * `auth.login` / `auth.logout` / `settings.change` / `role.change` are
+ * reserved values for endpoints that do not exist yet - BruteForceGuard
+ * authenticates with stateless bearer tokens and configures roles through the
+ * environment, so no request path can produce them today.
+ */
+export type AuditAction =
+  | 'alert.status_change'
+  | 'ip.blocklist.add'
+  | 'ip.blocklist.remove'
+  | 'ip.whitelist.add'
+  | 'ip.whitelist.remove'
+  | 'auth.failed'
+  | 'auth.login'
+  | 'auth.logout'
+  | 'settings.change'
+  | 'role.change'
+
+/** Outcome recorded for one audit entry. */
+export type AuditResult = 'success' | 'failure' | 'denied'
+
+/**
+ * One immutable entry from `GET /api/v1/audit/` (newest first).
+ *
+ * Rows are append-only evidence: they are written by server-side hooks in the
+ * same transaction as the change they describe and can never be created,
+ * edited or deleted through the API. `actor` comes from the `X-User-Id`
+ * header while `actor_role` is the role bound to the acting token server-side
+ * (`null` when the credential carries no role). `detail` is sanitized on write
+ * - secret-looking values are replaced with `[REDACTED]`.
+ */
+export interface AuditLogEntry {
+  id: number
+  created_at: string
+  action: AuditAction | string
+  actor: string
+  actor_role: string | null
+  target_type: string | null
+  target_id: string | null
+  result: AuditResult | string
+  source_ip: string | null
+  detail: Record<string, unknown> | null
+  note: string | null
+}
+
+/** Server-side paginated envelope from `GET /api/v1/audit/`. */
+export interface AuditLogPage {
+  items: AuditLogEntry[]
+  total: number
+}
+
 export { detectionLabel, DETECTION_LABELS } from '../lib/detectionLabels'

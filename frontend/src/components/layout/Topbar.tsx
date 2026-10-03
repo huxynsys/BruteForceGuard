@@ -9,6 +9,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   '/sessions': { title: 'Attack Sessions', subtitle: 'Correlated attack activity' },
   '/ip-management': { title: 'IP Management', subtitle: 'Blocklist and whitelist controls' },
   '/analytics': { title: 'Analytics', subtitle: 'Visual threat analysis' },
+  '/audit': { title: 'Security Audit Log', subtitle: 'Immutable trail of security-sensitive actions' },
   '/settings': { title: 'Settings', subtitle: 'Dashboard configuration' },
 }
 

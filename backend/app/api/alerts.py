@@ -28,13 +28,14 @@ captured by the dynamic one.
 
 from dataclasses import dataclass
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.detection_config import get_detection_rule
 from app.db.database import get_db
 from app.models.alert import Alert
+from app.models.audit_log import AuditAction, AuditResult
 from app.schemas.alert import (
     AlertDetectionRule,
     AlertResponse,
@@ -50,6 +51,7 @@ from app.services.alert_lifecycle import (
     TransitionPermissionError,
 )
 from app.services.alert_service import AlertService
+from app.services.audit_service import AuditService, client_ip
 
 
 router = APIRouter(
@@ -71,6 +73,8 @@ class TriageActor:
 def require_alert_triage_auth(
     authorization: str | None = Header(default=None, alias="Authorization"),
     x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+    request: Request = None,
+    db: Session = Depends(get_db),
 ) -> TriageActor:
     """Authenticate a triage write and resolve its role.
 
@@ -80,31 +84,57 @@ def require_alert_triage_auth(
     role is bound to the *token* server-side - any client-supplied role
     header is ignored, so holding an analyst token can never grant admin
     transitions.
+
+    Every rejection (unconfigured, missing/unknown token, missing identity)
+    is recorded as an ``auth.failed`` audit entry before the exception is
+    raised; the presented token itself is never stored.
     """
+
+    audit = AuditService(db)
+    source_ip = client_ip(request)
+    path = request.url.path if request is not None else None
+
+    def _deny(note: str, status_code: int, detail: str, **headers) -> HTTPException:
+        audit.record_auth_failure(
+            actor=x_user_id.strip() if x_user_id and x_user_id.strip() else None,
+            target_id=path,
+            source_ip=source_ip,
+            note=note,
+            detail={"path": path, "status": status_code},
+        )
+        return HTTPException(status_code=status_code, detail=detail, headers=headers or None)
 
     token_roles = settings.alert_triage_token_roles
     if not token_roles:
+        # Fail-closed configuration state, not an authentication attempt:
+        # deliberately not audited (it would repeat on every request).
         raise HTTPException(
             status_code=503,
             detail="Alert triage API is not configured",
         )
 
     if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"},
+        raise _deny(
+            "Triage write rejected: bearer token missing",
+            401,
+            "Authentication required",
+            **{"WWW-Authenticate": "Bearer"},
         )
 
     token = authorization.split(" ", 1)[1].strip()
     role = token_roles.get(token)
     if role is None:
-        raise HTTPException(status_code=403, detail="Forbidden")
+        raise _deny(
+            "Triage write rejected: unknown token",
+            403,
+            "Forbidden",
+        )
 
     if not x_user_id or not x_user_id.strip():
-        raise HTTPException(
-            status_code=401,
-            detail="User identity required",
+        raise _deny(
+            "Triage write rejected: identity header missing",
+            401,
+            "User identity required",
         )
 
     return TriageActor(user=x_user_id.strip(), role=role)
@@ -222,6 +252,7 @@ def get_alert_status_history(
 def update_alert_status(
     alert_id: int,
     update: AlertStatusUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     actor: TriageActor = Depends(require_alert_triage_auth),
 ):
@@ -230,10 +261,14 @@ def update_alert_status(
     The transition must be legal for the current status (``409`` otherwise)
     and permitted for the authenticated role (``403`` when an analyst tries
     to reopen a closed alert).  Accepted changes record the actor, role,
-    timestamp and optional reason in the ``alert_status_history`` audit trail.
+    timestamp and optional reason in the ``alert_status_history`` audit trail
+    plus a ``security_audit_logs`` entry; rejected transitions are audited
+    separately as ``denied`` / ``failure`` outcomes so the security log shows
+    attempted privilege escalations too.
     """
 
     service = AlertService(db)
+    source_ip = client_ip(request)
 
     alert = service.get_alert(alert_id)
     if not alert:
@@ -246,10 +281,41 @@ def update_alert_status(
             actor=actor.user,
             role=actor.role,
             reason=update.reason,
+            source_ip=source_ip,
         )
     except InvalidTransitionError as exc:
+        AuditService(db).record(
+            action=AuditAction.ALERT_STATUS_CHANGE,
+            result=AuditResult.FAILURE,
+            actor=actor.user,
+            actor_role=actor.role,
+            target_type="alert",
+            target_id=alert_id,
+            source_ip=source_ip,
+            detail={
+                "from_status": alert.status,
+                "to_status": update.status.value,
+                "reason": update.reason,
+            },
+            note=str(exc),
+        )
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except TransitionPermissionError as exc:
+        AuditService(db).record(
+            action=AuditAction.ALERT_STATUS_CHANGE,
+            result=AuditResult.DENIED,
+            actor=actor.user,
+            actor_role=actor.role,
+            target_type="alert",
+            target_id=alert_id,
+            source_ip=source_ip,
+            detail={
+                "from_status": alert.status,
+                "to_status": update.status.value,
+                "reason": update.reason,
+            },
+            note=str(exc),
+        )
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     return _with_detection_rule(updated)

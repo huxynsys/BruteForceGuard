@@ -24,6 +24,7 @@ import app.models.auth_event  # noqa: F401
 import app.models.alert  # noqa: F401
 import app.models.attack_session  # noqa: F401
 import app.models.threat_indicator  # noqa: F401
+import app.models.audit_log  # noqa: F401  (SecurityAuditLog)
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
@@ -49,6 +50,10 @@ def migrated_db_url(tmp_path, monkeypatch):
 
 def _upgrade(db_url: str, revision: str) -> None:
     command.upgrade(_alembic_config(db_url), revision)
+
+
+def _downgrade(db_url: str, revision: str) -> None:
+    command.downgrade(_alembic_config(db_url), revision)
 
 
 def _column_names(engine, table: str) -> set[str]:
@@ -95,6 +100,7 @@ def test_fresh_database_upgrade_to_head(migrated_db_url):
         tables = set(inspector.get_table_names())
         assert {
             "auth_events", "alerts", "attack_sessions", "threat_indicators",
+            "security_audit_logs",
         } <= tables
 
         alert_cols = _column_names(engine, "alerts")
@@ -128,9 +134,74 @@ def test_migrated_schema_matches_models(migrated_db_url):
     try:
         for table in (
             "auth_events", "alerts", "attack_sessions", "threat_indicators",
+            "security_audit_logs",
         ):
             expected = {col.name for col in Base.metadata.tables[table].columns}
             assert _column_names(engine, table) == expected
+    finally:
+        engine.dispose()
+
+
+def test_audit_log_migration_installs_immutability_triggers(migrated_db_url):
+    """The audit table rejects raw UPDATE/DELETE through DB triggers.
+
+    SQLite and PostgreSQL both get trigger protection in
+    ``0006_security_audit_log``; the tests run on SQLite, where the triggers
+    are named ``trg_security_audit_logs_immutable_*`` and raise ``ABORT``.
+    """
+    _upgrade(migrated_db_url, "head")
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        trigger_names = {
+            row[0]
+            for row in engine.connect().exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+            )
+        }
+        assert trigger_names == {
+            "trg_security_audit_logs_immutable_UPDATE",
+            "trg_security_audit_logs_immutable_DELETE",
+        }
+
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO security_audit_logs (action, actor, result) "
+                    "VALUES ('auth.failed', 'anon', 'failure')"
+                )
+            )
+
+        # Raw UPDATE / DELETE are aborted by the triggers.
+        with pytest.raises(sa.exc.IntegrityError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(
+                    sa.text("UPDATE security_audit_logs SET actor = 'someone'")
+                )
+
+        with pytest.raises(sa.exc.IntegrityError, match="append-only"):
+            with engine.begin() as conn:
+                conn.execute(sa.text("DELETE FROM security_audit_logs"))
+    finally:
+        engine.dispose()
+
+
+def test_audit_log_downgrade_drops_triggers_and_table(migrated_db_url):
+    """Downgrading to 0005 removes the table and its triggers cleanly."""
+    _upgrade(migrated_db_url, "head")
+    _downgrade(migrated_db_url, "0005_alert_lifecycle")
+
+    engine = sa.create_engine(migrated_db_url)
+    try:
+        assert "security_audit_logs" not in sa.inspect(engine).get_table_names()
+        trigger_names = {
+            row[0]
+            for row in engine.connect().exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+            )
+        }
+        assert not any(
+            name.startswith("trg_security_audit_logs") for name in trigger_names
+        )
     finally:
         engine.dispose()
 

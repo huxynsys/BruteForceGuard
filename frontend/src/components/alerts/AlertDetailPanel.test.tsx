@@ -418,7 +418,9 @@ describe('AlertDetailPanel IP history', () => {
     })
 
     // The rest of the panel stays usable.
-    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Acknowledge alert 1' }),
+    ).toBeEnabled()
   })
 })
 
@@ -426,42 +428,64 @@ describe('AlertDetailPanel actions', () => {
   it('persists Acknowledge through the page-owned handler', () => {
     const { onStatusChange } = renderPanel()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Acknowledge alert 1' }),
+    )
 
-    expect(onStatusChange).toHaveBeenCalledWith(alertFixture, 'acknowledged')
+    expect(onStatusChange).toHaveBeenCalledWith(
+      alertFixture,
+      'acknowledged',
+      undefined,
+    )
   })
 
   it('persists Resolve through the page-owned handler', () => {
     const { onStatusChange } = renderPanel()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Resolve' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve alert 1' }))
 
-    expect(onStatusChange).toHaveBeenCalledWith(alertFixture, 'resolved')
+    expect(onStatusChange).toHaveBeenCalledWith(
+      alertFixture,
+      'resolved',
+      undefined,
+    )
   })
 
   it('persists Mark False Positive through the page-owned handler', () => {
     const { onStatusChange } = renderPanel()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mark False Positive' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mark alert 1' }))
 
-    expect(onStatusChange).toHaveBeenCalledWith(alertFixture, 'false_positive')
+    expect(onStatusChange).toHaveBeenCalledWith(
+      alertFixture,
+      'false_positive',
+      undefined,
+    )
   })
 
   it('applies the triage rules of the current status', () => {
     renderPanel({ ...alertFixture, status: 'resolved' })
 
-    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Resolve' })).toBeDisabled()
     expect(
-      screen.getByRole('button', { name: 'Mark False Positive' }),
+      screen.getByRole('button', { name: 'Acknowledge alert 1' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Resolve alert 1' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Mark alert 1' }),
     ).toBeEnabled()
   })
 
   it('disables every action while a transition is in flight', () => {
     renderPanel(alertFixture, { pending: true })
 
-    expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Resolve' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Acknowledge alert 1' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Resolve alert 1' }),
+    ).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Block Source IP' })).toBeDisabled()
   })
 

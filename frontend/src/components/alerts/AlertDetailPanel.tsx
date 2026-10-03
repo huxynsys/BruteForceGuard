@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, X } from 'lucide-react'
-import { fetchAlertsPage, fetchAlertHistory } from '../../api/alerts'
+import { fetchAlertsPage } from '../../api/alerts'
 import { blockIpAddress, fetchBlacklistEntries } from '../../api/blacklist'
 import { fetchEventGroups } from '../../api/events'
 import { getReputation } from '../../api/intelligence'

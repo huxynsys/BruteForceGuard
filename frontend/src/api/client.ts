@@ -45,26 +45,80 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+/** Credentials attached to one request; `null` when no token is configured. */
+export interface RequestCredentials {
+  token: string
+  user: string
+}
+
+/** Environment-backed credential pairs for the two endpoint groups. */
+export interface AuthEnv {
+  /** Guards IP-management writes (`VITE_IP_MANAGEMENT_TOKEN`). */
+  ipManagementToken?: string
+  ipManagementUser?: string
+  /** Role-bound token for alert triage and audit reads (`VITE_ALERT_TRIAGE_TOKEN`). */
+  triageToken?: string
+  triageUser?: string
+}
+
+/**
+ * Whether a request is served by the role-gated token
+ * (`ALERT_TRIAGE_API_TOKENS` server-side).
+ *
+ * Triage writes (`PATCH /api/v1/alerts/{id}`) and audit reads
+ * (`GET /api/v1/audit/`, admin-only) both resolve the caller's role from the
+ * token itself, so they must not receive the IP-management credential.
+ */
+export function isRoleGatedRequest(method: string, url: string): boolean {
+  const verb = method.toLowerCase()
+  return (
+    (verb === 'patch' && url.includes('/api/v1/alerts/')) ||
+    (verb === 'get' && url.includes('/api/v1/audit/'))
+  )
+}
+
+/**
+ * Select the credentials for one request (pure - unit-tested below).
+ *
+ * Falls back to whichever single token is configured, so a deployment that
+ * sets only one of the two tokens still authenticates both groups.
+ */
+export function selectAuthCredentials(
+  method: string,
+  url: string,
+  env: AuthEnv,
+): RequestCredentials | null {
+  const roleGated = isRoleGatedRequest(method, url)
+
+  const token = roleGated
+    ? (env.triageToken ?? env.ipManagementToken)
+    : (env.ipManagementToken ?? env.triageToken)
+  if (!token) return null
+
+  const user = roleGated
+    ? (env.triageUser ?? env.ipManagementUser ?? 'frontend')
+    : (env.ipManagementUser ?? env.triageUser ?? 'frontend')
+
+  return { token, user }
+}
+
 if (IP_MANAGEMENT_TOKEN || TRIAGE_TOKEN) {
   api.interceptors.request.use((config) => {
-    // Each write endpoint expects its own token (roles are bound to tokens
-    // server-side), so pick by target: triage PATCHes use the triage token,
-    // everything else keeps using the IP-management token (falling back to
-    // whichever single token is configured).
-    const method = (config.method ?? 'get').toLowerCase()
-    const isTriageWrite =
-      method === 'patch' && (config.url ?? '').includes('/api/v1/alerts/')
-
-    const token = isTriageWrite
-      ? (TRIAGE_TOKEN ?? IP_MANAGEMENT_TOKEN)
-      : (IP_MANAGEMENT_TOKEN ?? TRIAGE_TOKEN)
-    const user = isTriageWrite ? TRIAGE_USER : IP_MANAGEMENT_USER
-
-    if (!token) return config
+    const credentials = selectAuthCredentials(
+      config.method ?? 'get',
+      config.url ?? '',
+      {
+        ipManagementToken: IP_MANAGEMENT_TOKEN,
+        ipManagementUser: IP_MANAGEMENT_USER,
+        triageToken: TRIAGE_TOKEN,
+        triageUser: TRIAGE_USER,
+      },
+    )
+    if (!credentials) return config
 
     config.headers = config.headers ?? {}
-    config.headers.Authorization = `Bearer ${token}`
-    config.headers['X-User-Id'] = user
+    config.headers.Authorization = `Bearer ${credentials.token}`
+    config.headers['X-User-Id'] = credentials.user
     return config
   })
 }

@@ -34,6 +34,7 @@ import app.models.auth_event  # noqa: F401
 import app.models.alert  # noqa: F401  (Alert + AlertStatusHistory)
 import app.models.attack_session  # noqa: F401
 import app.models.threat_indicator  # noqa: F401
+import app.models.audit_log  # noqa: F401  (SecurityAuditLog)
 
 from app.core.config import settings
 

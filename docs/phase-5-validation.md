@@ -186,19 +186,62 @@ Every alert response (`GET /api/v1/alerts/`, `GET /api/v1/alerts/{id}`,
   the `reason` row, and falls back to the recorded rule context when the field
   is absent.
 
-## 11. Results
+## 11. Immutable security audit log
+
+`security_audit_logs` (`app/models/audit_log.py`, migration
+`0006_security_audit_log`) stores one row per security-sensitive action as
+append-only evidence.  Three layers keep it immutable:
+
+1. **No write API** — `app/api/audit.py` exposes only `GET /api/v1/audit/`;
+   there is intentionally no POST/PATCH/PUT/DELETE route.  Rows are appended
+   exclusively by server-side hooks through `AuditService.record` (alert
+   status transitions, IP blocklist/whitelist changes, failed
+   authentication) in the same transaction as the change they describe.
+2. **ORM listeners** — `before_update` / `before_delete` listeners raise
+   `AuditLogImmutableError`, so no application code path can mutate a row
+   through SQLAlchemy.
+3. **Database triggers** — `0006_security_audit_log` installs
+   `trg_security_audit_logs_immutable_*` triggers that abort raw
+   `UPDATE` / `DELETE` statements, covering SQL access outside the
+   application (SQLite *and* PostgreSQL; verified in `test_migrations.py`).
+
+**Secret-free writes** — every `detail` payload passes `sanitize_detail`
+first: values whose key looks secret (`password`, `token`, `secret`,
+`authorization`, `cookie`, ...) are replaced with `[REDACTED]`, long strings
+are truncated (500 chars) and non-JSON scalars are stringified.
+
+**Read API** — `GET /api/v1/audit/` is newest-first, server-side paginated
+(`skip`, `limit`) and filterable by `action`, `user`, `result`, `since`,
+`until`.  Reads require a bearer token bound to the **admin** role from
+`ALERT_TRIAGE_API_TOKENS` plus an `X-User-Id` header: an analyst token is
+rejected with 403 and an unconfigured deployment fails closed with 503.
+
+**Dashboard** — the admin-only `/audit` page (`pages/AuditLog.tsx`,
+`components/audit/AuditLogTable`) renders the evidence with expandable
+detail rows, action/result/actor filters and pagination.  `api/client.ts`
+routes `/api/v1/audit/` to `VITE_ALERT_TRIAGE_TOKEN` (the role-bound triage
+token) rather than the IP-management token, and 403/503 responses surface
+actionable configuration messages.
+
+**Tests** — `backend/tests/test_audit_log.py` (37 cases: three-layer
+immutability, redaction, hooks, auth/filters/pagination) plus trigger
+coverage in `test_migrations.py`; frontend `src/pages/AuditLog.test.tsx`
+(10) and the `fetchAuditLog` cases in `src/api/api.test.ts`.  Full suites at
+the time of writing: backend **471 passed**, frontend **152 passed**.
+
+## 12. Results
 
 - `python -m compileall app tests` → exit 0 (no syntax errors).
-- `pytest -v` → **74 passed, 0 failed** (warnings are benign: starlette
-  TestClient deprecation + SQLAlchemy identity-map notice from the event
-  factory).
+- `pytest -q` → **471 passed, 0 failed** (warnings are benign: starlette
+  TestClient deprecation, SQLAlchemy identity-map notice and an Alembic
+  `path_separator` deprecation).
 - Live verification against Dockerized PostgreSQL (Phase 5 scenario):
   `7 auth_events` (6 failures + 1 success) → `single_account_bruteforce`
   (high) + `failed_then_success` (critical) alerts → `single_account` +
   `failed_success` sessions; 6th failure did not duplicate the alert;
   `/close` and `/stats/active` returned correct data.
 
-## 12. Known limitations
+## 13. Known limitations
 
 1. Alert deduplication is alert-key based, not session-aware (see §7): a
    repeated detection refreshes the open alert instead of raising a new one,

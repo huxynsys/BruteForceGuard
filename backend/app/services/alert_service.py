@@ -19,7 +19,9 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.alert import Alert, AlertStatusHistory
+from app.models.audit_log import AuditAction, AuditResult
 from app.services.alert_lifecycle import validate_transition
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +184,7 @@ class AlertService:
         actor: str,
         role: str,
         reason: str | None = None,
+        source_ip: str | None = None,
     ) -> Alert:
         """Validate and persist one lifecycle transition.
 
@@ -190,8 +193,10 @@ class AlertService:
         ``TransitionPermissionError`` (403) when the role may not perform an
         otherwise-valid transition.  On success the alert's denormalized
         snapshot (``status_updated_at/by``, ``status_reason``), one
-        ``AlertStatusHistory`` audit row and one structured log line are
-        written in the same transaction.
+        ``AlertStatusHistory`` audit row, one ``SecurityAuditLog`` entry and
+        one structured log line are written in the same transaction - the
+        change and its immutable audit record either both persist or neither
+        does.
         """
 
         from_status = alert.status
@@ -215,6 +220,23 @@ class AlertService:
                 changed_by_role=role,
                 reason=reason,
             )
+        )
+
+        # Same transaction as the change it describes (commit deferred).
+        AuditService(self.db).record(
+            action=AuditAction.ALERT_STATUS_CHANGE,
+            result=AuditResult.SUCCESS,
+            actor=actor,
+            actor_role=role,
+            target_type="alert",
+            target_id=alert.id,
+            source_ip=source_ip,
+            detail={
+                "from_status": from_status,
+                "to_status": target_status,
+                "reason": reason,
+            },
+            commit=False,
         )
 
         self.db.commit()

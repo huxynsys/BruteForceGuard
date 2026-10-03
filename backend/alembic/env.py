@@ -36,6 +36,7 @@ import app.models.auth_event  # noqa: E402,F401
 import app.models.alert  # noqa: E402,F401
 import app.models.attack_session  # noqa: E402,F401
 import app.models.threat_indicator  # noqa: E402,F401
+import app.models.audit_log  # noqa: E402,F401 (SecurityAuditLog)
 
 target_metadata = Base.metadata
 

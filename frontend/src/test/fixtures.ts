@@ -3,6 +3,8 @@ import type {
   AlertDetectionRule,
   AlertExplanation,
   AttackSession,
+  AuditLogEntry,
+  AuditLogPage,
   AuthEvent,
   BlacklistEntry,
   DashboardAnalytics,
@@ -360,4 +362,86 @@ export const analyticsFixture: DashboardAnalytics = {
   top_ips: [{ value: '192.168.1.44', count: 25 }],
   top_users: [{ value: 'admin', count: 18 }],
   top_services: [{ value: 'ssh', count: 30 }],
+}
+
+/*
+ * Security audit log (`GET /api/v1/audit/`).
+ *
+ * The three entries mirror the real server-side writes: an alert triage
+ * success (alert_service.update_status), an IP blocklist addition and a
+ * rejected authorization (`audit.failed`). Detail payloads and the
+ * `[REDACTED]` marker match what the backend sanitizer stores.
+ */
+
+/** Successful alert triage transition recorded alongside the change. */
+export const auditStatusChangeFixture: AuditLogEntry = {
+  id: 12,
+  created_at: '2026-09-08T11:05:00Z',
+  action: 'alert.status_change',
+  actor: 'analyst-1',
+  actor_role: 'analyst',
+  target_type: 'alert',
+  target_id: '1',
+  result: 'success',
+  source_ip: '10.1.2.3',
+  detail: {
+    from_status: 'open',
+    to_status: 'acknowledged',
+    reason: 'Investigating',
+  },
+  note: null,
+}
+
+/** Rejected authorization on a role-gated endpoint (secret redacted). */
+export const auditDeniedAuthFixture: AuditLogEntry = {
+  id: 11,
+  created_at: '2026-09-08T11:00:00Z',
+  action: 'auth.failed',
+  actor: 'unknown',
+  actor_role: null,
+  target_type: 'endpoint',
+  target_id: 'PATCH /api/v1/alerts/1',
+  result: 'denied',
+  source_ip: '203.0.113.7',
+  detail: {
+    path: 'PATCH /api/v1/alerts/1',
+    status: 403,
+    token: '[REDACTED]',
+  },
+  note: 'Analyst tokens cannot reopen closed alerts',
+}
+
+/** Successful blocklist entry creation. */
+export const auditBlocklistAddFixture: AuditLogEntry = {
+  id: 10,
+  created_at: '2026-09-08T10:58:00Z',
+  action: 'ip.blocklist.add',
+  actor: 'ip-operator',
+  actor_role: 'admin',
+  target_type: 'blacklist_entry',
+  target_id: 'BLOCKLIST:SINGLE',
+  result: 'success',
+  source_ip: '10.1.2.3',
+  detail: {
+    list_type: 'BLOCKLIST',
+    entry_type: 'SINGLE',
+    value: '192.168.1.44',
+    description: 'Blocked from alert #1',
+  },
+  note: null,
+}
+
+/** One page of audit entries, newest first (server ordering). */
+export const auditLogPageFixture: AuditLogPage = {
+  items: [
+    auditStatusChangeFixture,
+    auditDeniedAuthFixture,
+    auditBlocklistAddFixture,
+  ],
+  total: 3,
+}
+
+export const emptyAuditLogPageFixture: AuditLogPage = {
+  items: [],
+  total: 0,
 }

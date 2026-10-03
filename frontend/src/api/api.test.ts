@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { fetchEvents, fetchEventGroups } from './events'
 import { fetchAlerts } from './alerts'
+import { fetchAuditLog } from './audit'
 import { blockIpAddress, fetchBlacklistEntries } from './blacklist'
 import { closeSession, fetchSession, fetchSessionStats, fetchSessions } from './sessions'
 import {
@@ -13,7 +14,9 @@ import { api } from './client'
 import {
   alertFixture,
   analyticsFixture,
+  auditLogPageFixture,
   blacklistEntryFixture,
+  emptyAuditLogPageFixture,
   eventFixture,
   eventGroupsFixture,
   sessionFixture,
@@ -207,6 +210,53 @@ describe('api layer', () => {
       entry_type: 'SINGLE',
       ip_address: '192.168.1.44',
     })
+  })
+
+  it('fetchAuditLog passes every filter, page bound and unwraps the page', async () => {
+    get.mockResolvedValue({ data: auditLogPageFixture })
+
+    const page = await fetchAuditLog({
+      action: 'auth.failed',
+      user: 'analyst-1',
+      result: 'denied',
+      since: '2026-09-08T00:00:00.000Z',
+      until: '2026-09-09T00:00:00.000Z',
+      skip: 25,
+      limit: 25,
+    })
+
+    expect(get).toHaveBeenCalledWith('/api/v1/audit/', {
+      params: {
+        action: 'auth.failed',
+        user: 'analyst-1',
+        result: 'denied',
+        since: '2026-09-08T00:00:00.000Z',
+        until: '2026-09-09T00:00:00.000Z',
+        skip: 25,
+        limit: 25,
+      },
+    })
+    expect(page.items[0].action).toBe('alert.status_change')
+    expect(page.total).toBe(3)
+  })
+
+  it('fetchAuditLog omits blank filters so the backend sees no constraint', async () => {
+    get.mockResolvedValue({ data: emptyAuditLogPageFixture })
+
+    const page = await fetchAuditLog({ action: '   ', user: '', result: '', limit: 25 })
+
+    expect(get).toHaveBeenCalledWith('/api/v1/audit/', { params: { limit: 25 } })
+    expect(page.items).toHaveLength(0)
+  })
+
+  it('fetchAuditLog explains a rejected or unconfigured audit read', async () => {
+    // Roless / analyst token: the API answers 403.
+    get.mockRejectedValue({ isAxiosError: true, response: { status: 403 } })
+    await expect(fetchAuditLog()).rejects.toThrow(/admin role/)
+
+    // No ALERT_TRIAGE_API_TOKENS configured: fail closed with 503.
+    get.mockRejectedValue({ isAxiosError: true, response: { status: 503 } })
+    await expect(fetchAuditLog()).rejects.toThrow(/not configured/)
   })
 
   it('propagates request failures so callers can render error states', async () => {
