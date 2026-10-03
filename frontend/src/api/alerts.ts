@@ -1,5 +1,10 @@
 import { api } from './client'
-import type { Alert, AlertStats, AlertStatus } from '../types'
+import type {
+  Alert,
+  AlertStats,
+  AlertStatus,
+  AlertStatusTransition,
+} from '../types'
 
 /**
  * Alerts API client.
@@ -102,15 +107,39 @@ export async function fetchAlert(alertId: number | string): Promise<Alert> {
 /**
  * Persist an analyst triage transition.
  *
- * The backend validates the status, stores it and returns the updated alert,
- * so callers can refresh from the server instead of faking local state.
+ * The backend validates the status against the lifecycle state machine, checks
+ * the role bound to the caller's token and stores the change with the actor,
+ * timestamp and optional ``reason``; it then returns the updated alert, so
+ * callers can refresh from the server instead of faking local state.
+ *
+ * A blank/whitespace ``reason`` is omitted entirely so the audit trail records
+ * "no reason" rather than an empty string (the backend normalizes it anyway).
  */
 export async function updateAlertStatus(
   alertId: number | string,
   status: AlertStatus,
+  reason?: string,
 ): Promise<Alert> {
-  const response = await api.patch<Alert>(`/api/v1/alerts/${alertId}`, {
-    status,
-  })
+  const body: { status: AlertStatus; reason?: string } = { status }
+  const trimmed = reason?.trim()
+  if (trimmed) body.reason = trimmed
+
+  const response = await api.patch<Alert>(`/api/v1/alerts/${alertId}`, body)
+  return response.data
+}
+
+/**
+ * Fetch the append-only lifecycle audit trail of one alert (newest first).
+ *
+ * Each entry records who moved the alert from one status to another, when, and
+ * the optional closure reason, so the investigation UI can show the full
+ * triage history alongside the current state.
+ */
+export async function fetchAlertHistory(
+  alertId: number | string,
+): Promise<AlertStatusTransition[]> {
+  const response = await api.get<AlertStatusTransition[]>(
+    `/api/v1/alerts/${alertId}/history`,
+  )
   return response.data
 }

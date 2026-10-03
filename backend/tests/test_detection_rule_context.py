@@ -162,12 +162,15 @@ def test_alert_list_returns_the_detection_rule(client, alert_factory):
     assert body[0]["detection_rule"]["threshold"] == 10
 
 
-def test_triage_transition_keeps_the_detection_rule(client, alert_factory):
+def test_triage_transition_keeps_the_detection_rule(
+    client, alert_factory, analyst_headers
+):
     alert = alert_factory(status="open")
 
     body = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "false_positive"},
+        headers=analyst_headers,
     ).json()
 
     assert body["status"] == "false_positive"

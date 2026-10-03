@@ -49,13 +49,16 @@ def test_detail_returns_every_structured_field(client, alert_factory):
     assert explanation["text"]
 
 
-def test_list_and_triage_responses_carry_the_explanation(client, alert_factory):
+def test_list_and_triage_responses_carry_the_explanation(
+    client, alert_factory, analyst_headers
+):
     alert = alert_factory(evidence={"failure_count": 12, "window_seconds": 300})
 
     listed = client.get("/api/v1/alerts/").json()
     patched = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "acknowledged"},
+        headers=analyst_headers,
     ).json()
 
     assert listed[0]["explanation"]["failure_count"] == 12

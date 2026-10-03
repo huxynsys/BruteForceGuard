@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, IPvAnyAddress
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress, field_validator
 
 
 class AlertSeverity(str, Enum):
@@ -68,6 +68,24 @@ class AlertExplanation(BaseModel):
     text: str
 
 
+class AlertStatusTransition(BaseModel):
+    """One recorded lifecycle transition from ``GET /alerts/{id}/history``.
+
+    ``changed_at`` / ``changed_by`` / ``changed_by_role`` satisfy the audit
+    requirement: every status change is attributable to a named actor with a
+    timestamp, and ``reason`` carries the optional closure justification.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    from_status: str
+    to_status: str
+    changed_at: datetime
+    changed_by: str
+    changed_by_role: str
+    reason: str | None = None
+
+
 class AlertResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,6 +109,11 @@ class AlertResponse(BaseModel):
     status: str
     session_id: int | None
 
+    # Latest lifecycle transition snapshot (NULL before any triage action).
+    status_updated_at: datetime | None = None
+    status_updated_by: str | None = None
+    status_reason: str | None = None
+
     # The detection rule that produced this alert (never analyst-supplied).
     detection_rule: AlertDetectionRule | None = None
 
@@ -107,11 +130,25 @@ class AlertResponse(BaseModel):
 
 
 class AlertStatusUpdate(BaseModel):
-    """Body of a triage transition (``PATCH /api/v1/alerts/{id}``)."""
+    """Body of a triage transition (``PATCH /api/v1/alerts/{id}``).
+
+    ``reason`` is optional and mainly used when closing an alert (resolved /
+    false positive); blank values normalize to ``None`` so the audit trail
+    records "no reason" rather than an empty string.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     status: AlertStatus
+    reason: str | None = Field(default=None, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _normalize_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class AlertStats(BaseModel):

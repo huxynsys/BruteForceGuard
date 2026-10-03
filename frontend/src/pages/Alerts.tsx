@@ -124,12 +124,12 @@ export default function Alerts() {
 
   const closePanel = () => setSelectedId(null)
 
-  const handleStatusChange = async (alert: Alert, next: AlertStatus) => {
+  const handleStatusChange = async (alert: Alert, next: AlertStatus, reason?: string) => {
     setPendingId(alert.id)
     clearFeedbacks()
 
     try {
-      await updateAlertStatus(alert.id, next)
+      await updateAlertStatus(alert.id, next, reason)
       setNotice(
         `Alert #${alert.id} marked as ${alertStatusLabel(next).toLowerCase()}.`,
       )

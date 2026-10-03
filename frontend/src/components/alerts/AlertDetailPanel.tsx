@@ -1,10 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, X } from 'lucide-react'
-import { fetchAlertsPage } from '../../api/alerts'
+import { fetchAlertsPage, fetchAlertHistory } from '../../api/alerts'
 import { blockIpAddress, fetchBlacklistEntries } from '../../api/blacklist'
 import { fetchEventGroups } from '../../api/events'
 import { getReputation } from '../../api/intelligence'
+import { TRIAGE_ROLE } from '../../api/client'
 import { useApi } from '../../hooks/useApi'
 import { LoadingState, Section } from '../ui/States'
 import { ResultBadge, SeverityBadge, StatusBadge } from '../ui/Cards'
@@ -13,11 +14,11 @@ import { detectionLabel } from '../../lib/detectionLabels'
 import { alertStatusLabel } from '../../lib/labels'
 import { formatDateTime, formatDuration } from '../../lib/format'
 import {
-  canAcknowledge,
-  canMarkFalsePositive,
-  canResolve,
+  canTransition,
   failedAttempts,
+  requiresAdminTransition,
   thresholdReached,
+  type TriageRole,
 } from '../../lib/alerts'
 import type { Alert, AlertStatus } from '../../types'
 import type { ReputationResult } from '../../types/intelligence'
@@ -107,11 +108,23 @@ interface IpHistory {
 
 export interface AlertDetailPanelProps {
   alert: Alert
-  /** Persist a triage transition; the alerts page owns the API call. */
-  onStatusChange: (alert: Alert, status: AlertStatus) => Promise<void>
+  /**
+   * Persist a triage transition; the alerts page owns the API call. `reason` is
+   * the optional justification recorded with the transition (mainly closures).
+   */
+  onStatusChange: (
+    alert: Alert,
+    status: AlertStatus,
+    reason?: string,
+  ) => Promise<void>
   onClose: () => void
   /** True while the page is persisting a transition for this alert. */
   pending?: boolean
+  /**
+   * Role the UI may offer admin-only transitions for. Defaults to the role the
+   * triage token is configured with; the backend re-validates every write.
+   */
+  role?: TriageRole
 }
 
 export default function AlertDetailPanel({
@@ -119,6 +132,7 @@ export default function AlertDetailPanel({
   onStatusChange,
   onClose,
   pending = false,
+  role = TRIAGE_ROLE,
 }: AlertDetailPanelProps) {
   const sourceIp = alert.source_ip
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -129,6 +143,8 @@ export default function AlertDetailPanel({
   const [blockedTick, setBlockedTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  /** Optional justification sent with the next lifecycle transition. */
+  const [transitionReason, setTransitionReason] = useState('')
 
   // A drawer must never trap the analyst: Escape always closes it.
   useEffect(() => {
@@ -263,6 +279,52 @@ export default function AlertDetailPanel({
   const reputation = history.data?.reputation ?? null
   const alreadyBlocked = Boolean(blacklist.data)
   const busy = pending || blockStage === 'saving'
+
+  /** Availability of each footer action for the given alert/role. */
+  const canAcknowledge = canTransition(alert.status, 'acknowledged', role)
+  const canInvestigate = canTransition(alert.status, 'investigating', role)
+  const canResolve = canTransition(alert.status, 'resolved', role)
+  const canFalsePositive = canTransition(alert.status, 'false_positive', role)
+  const canReopen = canTransition(alert.status, 'open', role)
+
+  /** Map footer button keys to their target status and availability. */
+  const actionMeta = useMemo(
+    () => [
+      {
+        key: 'acknowledge',
+        label: 'Acknowledge',
+        status: 'acknowledged' as AlertStatus,
+        can: canAcknowledge,
+      },
+      {
+        key: 'investigate',
+        label: 'Investigate',
+        status: 'investigating' as AlertStatus,
+        can: canInvestigate,
+      },
+      {
+        key: 'resolve',
+        label: 'Resolve',
+        status: 'resolved' as AlertStatus,
+        can: canResolve,
+        needsReason: true,
+      },
+      {
+        key: 'falsePositive',
+        label: 'False Positive',
+        status: 'false_positive' as AlertStatus,
+        can: canFalsePositive,
+        needsReason: true,
+      },
+      {
+        key: 'reopen',
+        label: 'Reopen',
+        status: 'open' as AlertStatus,
+        can: canReopen,
+      },
+    ] as const,
+    [canAcknowledge, canInvestigate, canResolve, canFalsePositive, canReopen],
+  )
 
   /** Block the alert's source IP (persisted by `POST /api/v1/blacklist/`). */
   const handleBlock = async () => {
@@ -646,36 +708,67 @@ export default function AlertDetailPanel({
             </div>
           )}
 
+          <div className="transition-reason">
+            <label htmlFor="transition-reason">
+              Reason {requiresAdminTransition(alert.status, 'resolved') ||
+              requiresAdminTransition(alert.status, 'false_positive')
+                ? '(required for certain closures)'
+                : '(optional)'}
+            </label>
+            <textarea
+              id="transition-reason"
+              className="neo-input"
+              rows={2}
+              maxLength={500}
+              value={transitionReason}
+              onChange={(e) => setTransitionReason(e.target.value)}
+              placeholder="Enter a reason for this transition..."
+              aria-describedby="transition-reason-hint"
+            />
+            <span
+              id="transition-reason-hint"
+              className="input-hint"
+            >
+              {transitionReason.length}/500 characters
+            </span>
+          </div>
+
           <div className="alert-panel__actions">
-            <button
-              type="button"
-              className="neo-button"
-              disabled={busy || !canAcknowledge(alert.status)}
-              aria-busy={busy}
-              onClick={() => void onStatusChange(alert, 'acknowledged')}
-            >
-              Acknowledge
-            </button>
+            {actionMeta.map((action) => {
+              const needsReason = Boolean(
+                action.needsReason &&
+                  requiresAdminTransition(alert.status, action.status),
+              )
+              const reasonReady = !needsReason || transitionReason.trim().length > 0
+              const disabled = busy || !action.can || !reasonReady
 
-            <button
-              type="button"
-              className="neo-button"
-              disabled={busy || !canResolve(alert.status)}
-              aria-busy={busy}
-              onClick={() => void onStatusChange(alert, 'resolved')}
-            >
-              Resolve
-            </button>
-
-            <button
-              type="button"
-              className="neo-button"
-              disabled={busy || !canMarkFalsePositive(alert.status)}
-              aria-busy={busy}
-              onClick={() => void onStatusChange(alert, 'false_positive')}
-            >
-              Mark False Positive
-            </button>
+              return (
+                <button
+                  key={action.key}
+                  type="button"
+                  className="neo-button"
+                  disabled={disabled}
+                  aria-busy={busy}
+                  aria-label={`${action.key === 'falsePositive' ? 'Mark' : action.label} alert ${alert.id}`}
+                  onClick={() => {
+                    if (disabled) return
+                    const nextReason = needsReason ? transitionReason : undefined
+                    void onStatusChange(
+                      alert,
+                      action.status,
+                      nextReason,
+                    )
+                    if (needsReason) {
+                      setTransitionReason('')
+                    }
+                  }}
+                >
+                  {action.key === 'falsePositive'
+                    ? 'Mark False Positive'
+                    : action.label}
+                </button>
+              )
+            })}
 
             <button
               type="button"

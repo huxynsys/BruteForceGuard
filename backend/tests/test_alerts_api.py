@@ -164,12 +164,13 @@ def test_stats_respects_the_same_filters(client, alert_factory):
 # ---------------------------------------------------------------------------
 
 
-def test_patching_status_is_persisted(client, db, alert_factory):
+def test_patching_status_is_persisted(client, db, alert_factory, analyst_headers):
     alert = alert_factory(status="open")
 
     response = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "acknowledged"},
+        headers=analyst_headers,
     )
 
     assert response.status_code == 200
@@ -187,7 +188,7 @@ def test_patching_status_is_persisted(client, db, alert_factory):
     assert _alerts(client, "?status=open") == []
 
 
-def test_full_triage_lifecycle(client, alert_factory):
+def test_full_triage_lifecycle(client, alert_factory, analyst_headers):
     alert = alert_factory(status="open")
 
     for status in (
@@ -199,16 +200,18 @@ def test_full_triage_lifecycle(client, alert_factory):
         response = client.patch(
             f"/api/v1/alerts/{alert.id}",
             json={"status": status},
+            headers=analyst_headers,
         )
 
         assert response.status_code == 200, response.text
         assert response.json()["status"] == status
 
 
-def test_patching_an_unknown_alert_is_404(client):
+def test_patching_an_unknown_alert_is_404(client, analyst_headers):
     response = client.patch(
         "/api/v1/alerts/999999",
         json={"status": "resolved"},
+        headers=analyst_headers,
     )
 
     assert response.status_code == 404
@@ -216,25 +219,27 @@ def test_patching_an_unknown_alert_is_404(client):
 
 
 def test_patching_an_invalid_status_is_422_and_changes_nothing(
-    client, alert_factory
+    client, alert_factory, analyst_headers
 ):
     alert = alert_factory(status="open")
 
     response = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "closed"},
+        headers=analyst_headers,
     )
 
     assert response.status_code == 422
     assert client.get(f"/api/v1/alerts/{alert.id}").json()["status"] == "open"
 
 
-def test_patching_rejects_unknown_fields(client, alert_factory):
+def test_patching_rejects_unknown_fields(client, alert_factory, analyst_headers):
     alert = alert_factory()
 
     response = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "resolved", "severity": "low"},
+        headers=analyst_headers,
     )
 
     assert response.status_code == 422

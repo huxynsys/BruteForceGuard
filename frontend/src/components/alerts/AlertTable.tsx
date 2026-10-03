@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import type { Alert, AlertStatus } from '../../types'
 import { detectionLabel } from '../../lib/detectionLabels'
-import { canAcknowledge, canResolve, failedAttempts } from '../../lib/alerts'
+import { canTransition, failedAttempts, type TriageRole } from '../../lib/alerts'
+import { TRIAGE_ROLE } from '../../api/client'
 import { formatDateTime } from '../../lib/format'
 import { SeverityBadge, StatusBadge } from '../ui/Cards'
 
@@ -15,6 +16,11 @@ interface AlertTableProps {
   selectedId?: number | null
   /** Select an alert; the page opens the details side panel. */
   onSelect?: (alert: Alert) => void
+  /**
+   * Role the UI may offer admin-only transitions for. Defaults to the role the
+   * triage token is configured with; the backend re-validates every write.
+   */
+  role?: TriageRole
 }
 /**
  * Detailed alert work queue.
@@ -31,6 +37,7 @@ export default function AlertTable({
   pendingId = null,
   selectedId = null,
   onSelect,
+  role = TRIAGE_ROLE,
 }: AlertTableProps) {
   return (
     <div className="table-wrap">
@@ -52,6 +59,13 @@ export default function AlertTable({
             const attempts = failedAttempts(alert)
             const busy = pendingId === alert.id
             const selected = selectedId === alert.id
+            const canAcknowledge = canTransition(
+              alert.status,
+              'acknowledged',
+              role,
+            )
+            const canResolve = canTransition(alert.status, 'resolved', role)
+            const canReopen = canTransition(alert.status, 'open', role)
 
             return (
               <tr
@@ -106,7 +120,7 @@ export default function AlertTable({
                     <button
                       type="button"
                       className="neo-button neo-button--sm"
-                      disabled={busy || !canAcknowledge(alert.status)}
+                      disabled={busy || !canAcknowledge}
                       aria-busy={busy}
                       aria-label={`Acknowledge alert ${alert.id}`}
                       onClick={() => onStatusChange(alert, 'acknowledged')}
@@ -116,12 +130,22 @@ export default function AlertTable({
                     <button
                       type="button"
                       className="neo-button neo-button--sm"
-                      disabled={busy || !canResolve(alert.status)}
+                      disabled={busy || !canResolve}
                       aria-busy={busy}
                       aria-label={`Resolve alert ${alert.id}`}
                       onClick={() => onStatusChange(alert, 'resolved')}
                     >
                       Resolve
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-button neo-button--sm"
+                      disabled={busy || !canReopen}
+                      aria-busy={busy}
+                      aria-label={`Reopen alert ${alert.id}`}
+                      onClick={() => onStatusChange(alert, 'open')}
+                    >
+                      Reopen
                     </button>
                   </div>
                 </td>

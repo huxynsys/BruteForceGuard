@@ -7,6 +7,7 @@ The alerts page is the single authoritative detailed view of detections, so:
 * ``GET  /api/v1/alerts/stats``  matching total + facet counts, used for
                                  pagination and the filter options
 * ``GET  /api/v1/alerts/{id}``   one alert for the investigation page
+* ``GET  /api/v1/alerts/{id}/history``  audit trail of lifecycle transitions
 * ``PATCH /api/v1/alerts/{id}``  persist an analyst triage transition
 
 Every response also carries ``detection_rule`` (the threshold/window/requirement
@@ -15,13 +16,22 @@ structured, generated "why this alert exists" context - see
 ``app.services.alert_explanation``) so the alert-details panel can explain a
 detection without duplicating thresholds in the browser.
 
+Triage writes (``PATCH``) require a bearer token bound to an ``analyst`` or
+``admin`` role via ``ALERT_TRIAGE_API_TOKENS`` plus an ``X-User-Id`` identity
+header; the state machine in ``app.services.alert_lifecycle`` then decides
+whether the requested transition is legal for that role.  Read endpoints stay
+public - only state *changes* are gated.
+
 Note: ``/stats`` is declared before ``/{alert_id}`` so the static path is not
 captured by the dynamic one.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from dataclasses import dataclass
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.detection_config import get_detection_rule
 from app.db.database import get_db
 from app.models.alert import Alert
@@ -31,9 +41,14 @@ from app.schemas.alert import (
     AlertSeverity,
     AlertStats,
     AlertStatus,
+    AlertStatusTransition,
     AlertStatusUpdate,
 )
 from app.services.alert_explanation import build_alert_explanation
+from app.services.alert_lifecycle import (
+    InvalidTransitionError,
+    TransitionPermissionError,
+)
 from app.services.alert_service import AlertService
 
 
@@ -43,6 +58,56 @@ router = APIRouter(
 )
 
 SEARCH_DESCRIPTION = "Case-insensitive substring match on source IP or username"
+
+
+@dataclass(frozen=True)
+class TriageActor:
+    """Authenticated identity performing a lifecycle transition."""
+
+    user: str
+    role: str
+
+
+def require_alert_triage_auth(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    x_user_id: str | None = Header(default=None, alias="X-User-Id"),
+) -> TriageActor:
+    """Authenticate a triage write and resolve its role.
+
+    Follows the ``require_ip_management_auth`` pattern: a bearer token from
+    ``ALERT_TRIAGE_API_TOKENS`` authenticates the request while the
+    ``X-User-Id`` header names the actor recorded in the audit trail.  The
+    role is bound to the *token* server-side - any client-supplied role
+    header is ignored, so holding an analyst token can never grant admin
+    transitions.
+    """
+
+    token_roles = settings.alert_triage_token_roles
+    if not token_roles:
+        raise HTTPException(
+            status_code=503,
+            detail="Alert triage API is not configured",
+        )
+
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization.split(" ", 1)[1].strip()
+    role = token_roles.get(token)
+    if role is None:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if not x_user_id or not x_user_id.strip():
+        raise HTTPException(
+            status_code=401,
+            detail="User identity required",
+        )
+
+    return TriageActor(user=x_user_id.strip(), role=role)
 
 
 def _with_detection_rule(alert: Alert) -> AlertResponse:
@@ -139,13 +204,34 @@ def get_alert(
     return _with_detection_rule(alert)
 
 
+@router.get("/{alert_id}/history", response_model=list[AlertStatusTransition])
+def get_alert_status_history(
+    alert_id: int,
+    db: Session = Depends(get_db),
+):
+    """Audit trail of every lifecycle transition of one alert (newest first)."""
+
+    service = AlertService(db)
+    if not service.get_alert(alert_id):
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    return service.list_status_history(alert_id)
+
+
 @router.patch("/{alert_id}", response_model=AlertResponse)
 def update_alert_status(
     alert_id: int,
     update: AlertStatusUpdate,
     db: Session = Depends(get_db),
+    actor: TriageActor = Depends(require_alert_triage_auth),
 ):
-    """Persist an analyst triage transition for an alert."""
+    """Persist an analyst triage transition for an alert.
+
+    The transition must be legal for the current status (``409`` otherwise)
+    and permitted for the authenticated role (``403`` when an analyst tries
+    to reopen a closed alert).  Accepted changes record the actor, role,
+    timestamp and optional reason in the ``alert_status_history`` audit trail.
+    """
 
     service = AlertService(db)
 
@@ -153,4 +239,17 @@ def update_alert_status(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
 
-    return _with_detection_rule(service.update_status(alert, update.status.value))
+    try:
+        updated = service.update_status(
+            alert,
+            target_status=update.status.value,
+            actor=actor.user,
+            role=actor.role,
+            reason=update.reason,
+        )
+    except InvalidTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except TransitionPermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    return _with_detection_rule(updated)

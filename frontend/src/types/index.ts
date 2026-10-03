@@ -145,6 +145,11 @@ export interface Alert {
   detection_rule?: AlertDetectionRule | null
   /** Generated "why this alert exists" context (see `AlertExplanation`). */
   explanation?: AlertExplanation | null
+  // Alert lifecycle (last transition snapshot; NULL before any triage action)
+  status_updated_at?: string | null
+  status_updated_by?: string | null
+  /** Optional reason recorded with the last transition (e.g. a closure). */
+  status_reason?: string | null
   // Phase 7 intelligence enrichment
   risk_score: number
   risk_level: string
@@ -260,6 +265,21 @@ export type AlertStatus =
   | 'investigating'
   | 'resolved'
   | 'false_positive'
+
+/**
+ * One recorded lifecycle transition from `GET /api/v1/alerts/{id}/history`.
+ *
+ * `changed_at` / `changed_by` / `changed_by_role` make every status change
+ * attributable; `reason` carries the optional closure justification.
+ */
+export interface AlertStatusTransition {
+  from_status: AlertStatus | string
+  to_status: AlertStatus | string
+  changed_at: string
+  changed_by: string
+  changed_by_role: string
+  reason: string | null
+}
 
 /** Facet counts returned by `GET /api/v1/alerts/stats`. */
 export interface AlertStats {

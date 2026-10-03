@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     # Empty means the feature is intentionally disabled until configured.
     ip_management_api_tokens: str = ""
 
+    # --- Alert triage lifecycle ------------------------------------------
+    # Comma-separated API tokens accepted for alert status transitions
+    # (PATCH /api/v1/alerts/{id}), each bound to a role: "token=role" where
+    # role is "analyst" or "admin".  A token without "=role" grants the
+    # least-privileged "analyst" role (unknown roles fall back to analyst).
+    # Empty means alert triage writes are intentionally disabled (503) until
+    # configured - the same fail-closed posture as IP management.
+    alert_triage_api_tokens: str = ""
+
     # --- Legacy bootstrap (development / tests only) -------------------
     # Alembic is the authoritative schema mechanism (Phase 9.2).  This flag
     # exists so legacy `create_all` workflows can still be bootstrapped
@@ -173,6 +182,29 @@ class Settings(BaseSettings):
             for token in self.ip_management_api_tokens.split(",")
             if token.strip()
         ]
+
+    @property
+    def alert_triage_token_roles(self) -> dict[str, str]:
+        """Map of API token -> triage role (``analyst`` or ``admin``).
+
+        Entries are comma-separated ``token=role`` pairs.  A token without a
+        role, or with an unrecognized role, is treated as the least-
+        privileged ``analyst`` role so a misconfiguration can never silently
+        grant admin rights.
+        """
+
+        roles: dict[str, str] = {}
+        for entry in self.alert_triage_api_tokens.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            token, separator, role = entry.partition("=")
+            token = token.strip()
+            role = role.strip().lower() if separator else ""
+            if not token:
+                continue
+            roles[token] = role if role in ("analyst", "admin") else "analyst"
+        return roles
 
     @property
     def docs_enabled(self) -> bool:

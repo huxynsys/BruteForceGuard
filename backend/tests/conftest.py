@@ -31,9 +31,43 @@ from app.db.database import Base
 
 # Import the models so their tables are registered on Base.metadata.
 import app.models.auth_event  # noqa: F401
-import app.models.alert  # noqa: F401
+import app.models.alert  # noqa: F401  (Alert + AlertStatusHistory)
 import app.models.attack_session  # noqa: F401
 import app.models.threat_indicator  # noqa: F401
+
+from app.core.config import settings
+
+
+@pytest.fixture(autouse=True)
+def alert_triage_tokens(monkeypatch):
+    """Configure analyst/admin triage tokens for every test.
+
+    Mirrors the fail-closed default (``ALERT_TRIAGE_API_TOKENS`` unset in
+    development) - tests need authenticated PATCHes, so a known token pair is
+    installed for the whole run and individual tests may override it (e.g.
+    to assert the unconfigured 503).
+    """
+
+    monkeypatch.setattr(
+        settings,
+        "alert_triage_api_tokens",
+        "analyst-token=analyst, admin-token=admin",
+        raising=False,
+    )
+
+
+@pytest.fixture()
+def analyst_headers():
+    """Valid credentials for an analyst-role triage request."""
+
+    return {"Authorization": "Bearer analyst-token", "X-User-Id": "analyst"}
+
+
+@pytest.fixture()
+def admin_headers():
+    """Valid credentials for an admin-role triage request."""
+
+    return {"Authorization": "Bearer admin-token", "X-User-Id": "admin"}
 
 
 @compiles(INET, "sqlite")
