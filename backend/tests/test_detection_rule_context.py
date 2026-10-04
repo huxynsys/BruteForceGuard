@@ -135,10 +135,10 @@ def test_unknown_alert_type_has_no_rule():
 # ---------------------------------------------------------------------------
 
 
-def test_alert_detail_returns_the_detection_rule(client, alert_factory):
+def test_alert_detail_returns_the_detection_rule(client, alert_factory, reader_headers):
     alert = alert_factory(alert_type="single_account_bruteforce", service="ssh")
 
-    body = client.get(f"/api/v1/alerts/{alert.id}").json()
+    body = client.get(f"/api/v1/alerts/{alert.id}", headers=reader_headers).json()
 
     rule = body["detection_rule"]
     assert rule["alert_type"] == "single_account_bruteforce"
@@ -146,18 +146,20 @@ def test_alert_detail_returns_the_detection_rule(client, alert_factory):
     assert rule["window_seconds"] == SERVICE_THRESHOLDS["ssh"]["window_seconds"]
 
 
-def test_rule_threshold_follows_the_alert_service(client, alert_factory):
+def test_rule_threshold_follows_the_alert_service(client, alert_factory, reader_headers):
     alert = alert_factory(alert_type="single_account_bruteforce", service="api")
 
-    rule = client.get(f"/api/v1/alerts/{alert.id}").json()["detection_rule"]
+    rule = client.get(f"/api/v1/alerts/{alert.id}", headers=reader_headers).json()[
+        "detection_rule"
+    ]
 
     assert rule["threshold"] == SERVICE_THRESHOLDS["api"]["failure_threshold"]
 
 
-def test_alert_list_returns_the_detection_rule(client, alert_factory):
+def test_alert_list_returns_the_detection_rule(client, alert_factory, reader_headers):
     alert_factory(alert_type="low_and_slow", service="ssh")
 
-    body = client.get("/api/v1/alerts/").json()
+    body = client.get("/api/v1/alerts/", headers=reader_headers).json()
 
     assert body[0]["detection_rule"]["threshold"] == 10
 
@@ -177,10 +179,10 @@ def test_triage_transition_keeps_the_detection_rule(
     assert body["detection_rule"]["alert_type"] == "single_account_bruteforce"
 
 
-def test_unknown_alert_type_serializes_as_null(client, alert_factory):
+def test_unknown_alert_type_serializes_as_null(client, alert_factory, reader_headers):
     alert = alert_factory(alert_type="legacy_custom_rule")
 
-    body = client.get(f"/api/v1/alerts/{alert.id}").json()
+    body = client.get(f"/api/v1/alerts/{alert.id}", headers=reader_headers).json()
 
     assert body["alert_type"] == "legacy_custom_rule"
     assert body["detection_rule"] is None

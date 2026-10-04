@@ -27,7 +27,7 @@ def _post(client, timestamp, *, source_ip, username, service="ssh"):
 # ---------------------------------------------------------------------
 # 5.18 Password spraying E2E
 # ---------------------------------------------------------------------
-def test_password_spray_end_to_end(client):
+def test_password_spray_end_to_end(client, reader_headers):
     base = datetime.now()
     users = ["alice", "bob", "charlie", "david", "eve"]
     ip = "10.10.10.20"
@@ -42,11 +42,12 @@ def test_password_spray_end_to_end(client):
         )
 
     alert_types = {
-        a["alert_type"] for a in client.get("/api/v1/alerts/").json()
+        a["alert_type"]
+        for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
     }
     assert "password_spraying" in alert_types
 
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     spray_sessions = [
         s for s in sessions if s["session_type"] == "password_spray"
     ]
@@ -62,7 +63,7 @@ def test_password_spray_end_to_end(client):
 # ---------------------------------------------------------------------
 # 5.19 Distributed brute force E2E
 # ---------------------------------------------------------------------
-def test_distributed_bruteforce_end_to_end(client):
+def test_distributed_bruteforce_end_to_end(client, reader_headers):
     base = datetime.now()
     ips = ["10.0.0.1", "10.0.0.2", "10.0.0.3"]
 
@@ -76,7 +77,8 @@ def test_distributed_bruteforce_end_to_end(client):
         )
 
     alert_types = {
-        a["alert_type"] for a in client.get("/api/v1/alerts/").json()
+        a["alert_type"]
+        for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
     }
     assert "distributed_bruteforce" in alert_types
 
@@ -85,7 +87,7 @@ def test_distributed_bruteforce_end_to_end(client):
     # share the `administrator`/`ssh` correlation dimensions.  What
     # matters is that ONE session represents the distributed attack and
     # accumulates ALL of its source IPs (Section 5.19).
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     admin_sessions = [
         s for s in sessions
         if s["usernames"] and "administrator" in s["usernames"]
@@ -101,7 +103,7 @@ def test_distributed_bruteforce_end_to_end(client):
 # ---------------------------------------------------------------------
 # 5.21 Credential stuffing E2E
 # ---------------------------------------------------------------------
-def test_credential_stuffing_end_to_end(client):
+def test_credential_stuffing_end_to_end(client, reader_headers):
     base = datetime.now()
     ip = "10.0.0.70"
     users = [f"user{i:02d}" for i in range(10)]
@@ -115,7 +117,7 @@ def test_credential_stuffing_end_to_end(client):
             username=users[i % len(users)],
         )
 
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     stuffing_alerts = [
         a for a in alerts if a["alert_type"] == "credential_stuffing"
     ]
@@ -131,7 +133,7 @@ def test_credential_stuffing_end_to_end(client):
 
     # Credential stuffing and password spraying share the correlation
     # key (source_ip, service) — both signals land in the SAME session.
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     ip_sessions = [
         s for s in sessions if s["source_ips"] and ip in s["source_ips"]
     ]
@@ -141,7 +143,7 @@ def test_credential_stuffing_end_to_end(client):
 # ---------------------------------------------------------------------
 # 5.22 Low-and-slow E2E
 # ---------------------------------------------------------------------
-def test_low_and_slow_end_to_end(client):
+def test_low_and_slow_end_to_end(client, reader_headers):
     base = datetime.now() - timedelta(minutes=45)
     ip = "10.10.10.80"
 
@@ -155,12 +157,13 @@ def test_low_and_slow_end_to_end(client):
         )
 
     alert_types = {
-        a["alert_type"] for a in client.get("/api/v1/alerts/").json()
+        a["alert_type"]
+        for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
     }
     assert "low_and_slow" in alert_types
 
     low_slow_alerts = [
-        a for a in client.get("/api/v1/alerts/").json()
+        a for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
         if a["alert_type"] == "low_and_slow"
     ]
     assert low_slow_alerts[0]["evidence"]["active_intervals"] >= 5
@@ -168,7 +171,7 @@ def test_low_and_slow_end_to_end(client):
     # single-account cannot co-fire here: its 300 s window never contains
     # 5 failures when they are spaced 5 minutes apart.  The low-and-slow
     # signal alone owns the (ip + user + service) session.
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     related = [
         s for s in sessions
         if s["source_ips"] and ip in s["source_ips"]

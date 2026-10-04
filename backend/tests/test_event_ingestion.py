@@ -22,7 +22,7 @@ def _payload(**overrides):
     return payload
 
 
-def test_valid_event_is_accepted_and_persisted(client):
+def test_valid_event_is_accepted_and_persisted(client, reader_headers):
     response = client.post("/api/v1/events/", json=_payload())
     assert response.status_code == 200, response.text
 
@@ -34,12 +34,12 @@ def test_valid_event_is_accepted_and_persisted(client):
     assert body["port"] == 22
 
     # Persisted and retrievable.
-    events = client.get("/api/v1/events/").json()
+    events = client.get("/api/v1/events/", headers=reader_headers).json()
     assert len(events) == 1
     assert events[0]["id"] == body["id"]
 
     event_id = body["id"]
-    single = client.get(f"/api/v1/events/{event_id}")
+    single = client.get(f"/api/v1/events/{event_id}", headers=reader_headers)
     assert single.status_code == 200
     assert single.json()["id"] == event_id
 
@@ -75,15 +75,15 @@ def test_extra_fields_are_rejected(client):
     assert client.post("/api/v1/events/", json=payload).status_code == 422
 
 
-def test_invalid_event_creates_no_partial_rows(client):
+def test_invalid_event_creates_no_partial_rows(client, reader_headers):
     """Section 5.29: a rejected request must not partially insert anything."""
     # Start empty.
-    assert client.get("/api/v1/events/").json() == []
+    assert client.get("/api/v1/events/", headers=reader_headers).json() == []
 
     bad = _payload(result="maybe")
     assert client.post("/api/v1/events/", json=bad).status_code == 422
 
-    assert client.get("/api/v1/events/").json() == []
+    assert client.get("/api/v1/events/", headers=reader_headers).json() == []
 
 
 def test_invalid_port_is_rejected(client):
@@ -94,30 +94,40 @@ def test_invalid_port_is_rejected(client):
     assert client.post("/api/v1/events/", json=payload).status_code == 422
 
 
-def test_event_retrieval_returns_404_for_missing(client):
-    assert client.get("/api/v1/events/999999").status_code == 404
+def test_event_retrieval_returns_404_for_missing(client, reader_headers):
+    assert (
+        client.get("/api/v1/events/999999", headers=reader_headers).status_code == 404
+    )
 
 
-def test_list_events_pagination(client):
+def test_list_events_pagination(client, reader_headers):
     base = datetime(2026, 9, 1, 10, 0, 0)
 
     for i in range(5):
         ts = (base + timedelta(minutes=i)).isoformat() + "Z"
         client.post("/api/v1/events/", json=_payload(timestamp=ts))
 
-    all_events = client.get("/api/v1/events/", params={"limit": 100}).json()
+    all_events = client.get(
+        "/api/v1/events/", params={"limit": 100}, headers=reader_headers
+    ).json()
     assert len(all_events) == 5
 
-    page = client.get("/api/v1/events/", params={"limit": 2, "skip": 0}).json()
+    page = client.get(
+        "/api/v1/events/",
+        params={"limit": 2, "skip": 0},
+        headers=reader_headers,
+    ).json()
     assert len(page) == 2
 
 
-def test_success_event_does_not_create_bruteforce_alert(client):
+def test_success_event_does_not_create_bruteforce_alert(client, reader_headers):
     """Section 5.23: successful logins must not alert."""
     response = client.post(
         "/api/v1/events/",
         json=_payload(result="success"),
     )
     assert response.status_code == 200
-    assert client.get("/api/v1/alerts/").json() == []
-    assert client.get("/api/v1/attack-sessions/").json() == []
+    assert client.get("/api/v1/alerts/", headers=reader_headers).json() == []
+    assert (
+        client.get("/api/v1/attack-sessions/", headers=reader_headers).json() == []
+    )

@@ -15,6 +15,8 @@ from typing import Union
 from app.api.events import router as events_router
 from app.api.alerts import router as alerts_router
 from app.api.attack_sessions import router as attack_sessions_router
+from app.api.auth import router as auth_router  # interactive login/logout/me
+from app.api.users import router as users_router  # admin user management
 from app.api.dashboard import router as dashboard_router  # Phase 6
 from app.api.health import router as health_router  # Phase 9.6
 from app.api.intelligence import router as intelligence_router  # Phase 7
@@ -27,6 +29,7 @@ from app.models.alert import Alert
 from app.models.attack_session import AttackSession
 from app.models.threat_indicator import ThreatIndicator
 from app.models.audit_log import SecurityAuditLog  # noqa: F401 (register table)
+from app.models.user import AuthSession, User  # noqa: F401 (register tables)
 
 configure_logging()
 
@@ -45,6 +48,27 @@ async def lifespan(app: FastAPI):
             "metadata.create_all (Alembic remains authoritative)"
         )
         Base.metadata.create_all(bind=engine)
+
+    # First-run administrator: created only when AUTH_BOOTSTRAP_ADMIN_PASSWORD
+    # is set and the account does not exist yet.  Skipped silently when the
+    # users table has not been migrated yet (Alembic remains authoritative).
+    try:
+        from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.orm import Session as SASession
+
+        from app.services.auth_service import bootstrap_admin
+
+        if sa_inspect(engine).has_table("users"):
+            # Bind dynamically so test setups that swap ``engine`` are honoured.
+            with SASession(bind=engine) as session:
+                created = bootstrap_admin(session)
+            if created is not None:
+                logger.info(
+                    "bootstrap administrator created username=%s",
+                    created.username,
+                )
+    except Exception:  # pragma: no cover - never block startup on bootstrap
+        logger.exception("bootstrap administrator setup failed")
     yield
 
 
@@ -121,6 +145,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 # Register routers
 app.include_router(health_router)  # /health, /health/ready
+app.include_router(auth_router)  # /api/v1/auth (login/logout/me)
+app.include_router(users_router)  # /api/v1/users (admin only)
 app.include_router(events_router)
 app.include_router(alerts_router)
 app.include_router(attack_sessions_router)

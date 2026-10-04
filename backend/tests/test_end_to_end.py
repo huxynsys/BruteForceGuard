@@ -24,7 +24,7 @@ def _post_event(
     return response.json()
 
 
-def test_full_pipeline_end_to_end(client):
+def test_full_pipeline_end_to_end(client, reader_headers):
     """
     POST /events
         -> event saved
@@ -41,16 +41,16 @@ def test_full_pipeline_end_to_end(client):
     for i in range(5):
         _post_event(client, (base + timedelta(seconds=i * 5)).isoformat() + "Z")
 
-    events = client.get("/api/v1/events/").json()
+    events = client.get("/api/v1/events/", headers=reader_headers).json()
     assert len(events) == 5
 
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     assert len(alerts) == 1
     assert alerts[0]["alert_type"] == "single_account_bruteforce"
     assert alerts[0]["severity"] == "high"
     assert alerts[0]["status"] == "open"
 
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     assert len(sessions) == 1
     session_id = sessions[0]["id"]
     assert sessions[0]["session_type"] == "single_account"
@@ -60,12 +60,12 @@ def test_full_pipeline_end_to_end(client):
     # ---- 6th failure: event saved, alert DEDUPLICATED, session unchanged ----
     _post_event(client, (base + timedelta(seconds=30)).isoformat() + "Z")
 
-    assert len(client.get("/api/v1/events/").json()) == 6
+    assert len(client.get("/api/v1/events/", headers=reader_headers).json()) == 6
 
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     assert len(alerts) == 1
 
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     assert len(sessions) == 1
     assert sessions[0]["id"] == session_id
 
@@ -76,10 +76,11 @@ def test_full_pipeline_end_to_end(client):
         result="success",
     )
 
-    assert len(client.get("/api/v1/events/").json()) == 7
+    assert len(client.get("/api/v1/events/", headers=reader_headers).json()) == 7
 
     alert_types = {
-        a["alert_type"] for a in client.get("/api/v1/alerts/").json()
+        a["alert_type"]
+        for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
     }
     assert "single_account_bruteforce" in alert_types
     assert "failed_then_success" in alert_types
@@ -87,7 +88,7 @@ def test_full_pipeline_end_to_end(client):
     # Section 5.9: both detection signals describe ONE attack, so they
     # live in the SAME attack session and the session records both
     # detection types.
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     assert len(sessions) == 1
     assert sessions[0]["id"] == session_id
     assert sessions[0]["session_type"] == "single_account"
@@ -96,17 +97,24 @@ def test_full_pipeline_end_to_end(client):
     assert sessions[0]["event_count"] == 2
 
     # ---- the session still exists and can be retrieved by ID ----
-    assert client.get(f"/api/v1/attack-sessions/{session_id}").status_code == 200
+    assert (
+        client.get(
+            f"/api/v1/attack-sessions/{session_id}", headers=reader_headers
+        ).status_code
+        == 200
+    )
 
     # ---- active stats reflect the updated session ----
-    stats = client.get("/api/v1/attack-sessions/stats/active").json()
+    stats = client.get(
+        "/api/v1/attack-sessions/stats/active", headers=reader_headers
+    ).json()
     assert stats["active_sessions"] == 1
     assert stats["total_events"] == 2
     assert stats["unique_source_ips"] == 1
     assert stats["unique_usernames"] == 1
 
 
-def test_alert_session_linkage_and_group_context(client):
+def test_alert_session_linkage_and_group_context(client, reader_headers):
     """Every alert a detection creates carries the id of the session it was
     correlated into, and the grouped-events endpoint surfaces it.
 
@@ -119,14 +127,14 @@ def test_alert_session_linkage_and_group_context(client):
     for i in range(5):
         _post_event(client, (base + timedelta(seconds=i * 5)).isoformat() + "Z")
 
-    alerts = client.get("/api/v1/alerts/").json()
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
 
     assert len(alerts) == 1
     assert len(sessions) == 1
     assert alerts[0]["session_id"] == sessions[0]["id"]
 
-    groups = client.get("/api/v1/events/groups").json()
+    groups = client.get("/api/v1/events/groups", headers=reader_headers).json()
     assert groups["total"] == 1
     assert groups["items"][0]["session_ids"] == [sessions[0]["id"]]
 
@@ -140,7 +148,7 @@ def test_alert_session_linkage_and_group_context(client):
     session_id = sessions[0]["id"]
     alert_types = {
         a["alert_type"]: a
-        for a in client.get("/api/v1/alerts/").json()
+        for a in client.get("/api/v1/alerts/", headers=reader_headers).json()
     }
     assert "failed_then_success" in alert_types
     assert alert_types["failed_then_success"]["session_id"] == session_id

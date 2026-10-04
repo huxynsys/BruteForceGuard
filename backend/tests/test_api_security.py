@@ -16,19 +16,22 @@ PROD_DB = "postgresql+psycopg://bfg_user:secret@postgres:5432/bruteforceguard"
 # ---------------------------------------------------------------------------
 
 
-def test_development_cors_origin_is_allowed(client):
+def test_development_cors_origin_is_allowed(client, reader_headers):
     origin = DEVELOPMENT_CORS_ORIGINS[0]
 
-    response = client.get("/api/v1/events/", headers={"Origin": origin})
+    response = client.get(
+        "/api/v1/events/",
+        headers={**reader_headers, "Origin": origin},
+    )
 
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == origin
 
 
-def test_unconfigured_origin_gets_no_cors_grant(client):
+def test_unconfigured_origin_gets_no_cors_grant(client, reader_headers):
     response = client.get(
         "/api/v1/events/",
-        headers={"Origin": "https://evil.example.com"},
+        headers={**reader_headers, "Origin": "https://evil.example.com"},
     )
 
     assert response.status_code == 200
@@ -66,7 +69,7 @@ def test_production_allows_only_explicitly_configured_origins():
 # ---------------------------------------------------------------------------
 
 
-def test_internal_error_response_is_generic(client, monkeypatch):
+def test_internal_error_response_is_generic(client, monkeypatch, reader_headers):
     """A database-style failure must not leak SQL, DSNs, paths or tracebacks."""
     strict = TestClient(app, raise_server_exceptions=False)
 
@@ -79,7 +82,7 @@ def test_internal_error_response_is_generic(client, monkeypatch):
 
     monkeypatch.setattr(EventService, "get_events", boom)
 
-    response = strict.get("/api/v1/events/")
+    response = strict.get("/api/v1/events/", headers=reader_headers)
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}

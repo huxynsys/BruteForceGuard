@@ -55,7 +55,7 @@ def _post(client, timestamp, *, source_ip, username, service="ssh"):
     return response.json()
 
 
-def test_ssh_threshold_honored_over_http(client):
+def test_ssh_threshold_honored_over_http(client, reader_headers):
     """
     ssh failure_threshold is 5, so 4 failures must NOT alert
     (negative case from Section 5.23).
@@ -71,7 +71,7 @@ def test_ssh_threshold_honored_over_http(client):
             service="ssh",
         )
 
-    assert client.get("/api/v1/alerts/").json() == []
+    assert client.get("/api/v1/alerts/", headers=reader_headers).json() == []
 
     # The fifth failure crosses the threshold.
     _post(
@@ -82,13 +82,13 @@ def test_ssh_threshold_honored_over_http(client):
         service="ssh",
     )
 
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     assert [a["alert_type"] for a in alerts] == [
         "single_account_bruteforce"
     ]
 
 
-def test_web_threshold_is_higher_than_ssh(client):
+def test_web_threshold_is_higher_than_ssh(client, reader_headers):
     """
     web failure_threshold is 10, so 9 failures from one account must
     NOT alert where the same volume on ssh would have.
@@ -104,7 +104,7 @@ def test_web_threshold_is_higher_than_ssh(client):
             service="web",
         )
 
-    assert client.get("/api/v1/alerts/").json() == []
+    assert client.get("/api/v1/alerts/", headers=reader_headers).json() == []
 
     # 10th failure crosses the web threshold.
     _post(
@@ -115,13 +115,13 @@ def test_web_threshold_is_higher_than_ssh(client):
         service="web",
     )
 
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     assert [a["alert_type"] for a in alerts] == [
         "single_account_bruteforce"
     ]
 
 
-def test_api_threshold_requires_more_evidence(client):
+def test_api_threshold_requires_more_evidence(client, reader_headers):
     """
     api failure_threshold is 20, so 15 failures must NOT alert.
     """
@@ -136,4 +136,4 @@ def test_api_threshold_requires_more_evidence(client):
             service="api",
         )
 
-    assert client.get("/api/v1/alerts/").json() == []
+    assert client.get("/api/v1/alerts/", headers=reader_headers).json() == []

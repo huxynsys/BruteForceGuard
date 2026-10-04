@@ -25,7 +25,7 @@ def _patch(client, alert_id, payload, headers):
 
 
 def test_triage_writes_fail_closed_when_unconfigured(
-    client, alert_factory, analyst_headers, monkeypatch
+    client, db, alert_factory, analyst_headers, monkeypatch
 ):
     monkeypatch.setattr(settings, "alert_triage_api_tokens", "", raising=False)
     alert = alert_factory()
@@ -34,7 +34,10 @@ def test_triage_writes_fail_closed_when_unconfigured(
 
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
-    assert client.get(f"/api/v1/alerts/{alert.id}").json()["status"] == "open"
+
+    # No side effect: the alert is still open in the database.
+    db.expire_all()
+    assert db.get(Alert, alert.id).status == "open"
 
 
 def test_triage_writes_require_a_bearer_token(client, alert_factory):
@@ -170,7 +173,7 @@ def test_the_analyst_workflow_chain_is_accepted_end_to_end(
 
 
 def test_a_self_transition_is_rejected_and_changes_nothing(
-    client, db, alert_factory, analyst_headers
+    client, db, alert_factory, analyst_headers, reader_headers
 ):
     alert = alert_factory(status="open")
 
@@ -189,18 +192,24 @@ def test_a_self_transition_is_rejected_and_changes_nothing(
 
     # No audit rows for a rejected transition.
     assert db.query(AlertStatusHistory).count() == 0
-    assert client.get(f"/api/v1/alerts/{alert.id}/history").json() == []
+    assert (
+        client.get(f"/api/v1/alerts/{alert.id}/history", headers=reader_headers).json()
+        == []
+    )
 
 
 def test_a_closed_alert_cannot_close_itself_again(
-    client, alert_factory, analyst_headers
+    client, alert_factory, analyst_headers, reader_headers
 ):
     alert = alert_factory(status="resolved")
 
     response = _patch(client, alert.id, {"status": "resolved"}, analyst_headers)
 
     assert response.status_code == 409
-    assert client.get(f"/api/v1/alerts/{alert.id}").json()["status"] == "resolved"
+    assert (
+        client.get(f"/api/v1/alerts/{alert.id}", headers=reader_headers).json()["status"]
+        == "resolved"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -323,7 +332,7 @@ def test_an_oversized_reason_is_rejected(client, alert_factory, analyst_headers)
 
 
 def test_history_returns_every_transition_newest_first(
-    client, alert_factory, analyst_headers, admin_headers
+    client, alert_factory, analyst_headers, admin_headers, reader_headers
 ):
     alert = alert_factory(status="open")
     _patch(client, alert.id, {"status": "acknowledged"}, analyst_headers)
@@ -335,7 +344,7 @@ def test_history_returns_every_transition_newest_first(
         admin_headers,
     )
 
-    response = client.get(f"/api/v1/alerts/{alert.id}/history")
+    response = client.get(f"/api/v1/alerts/{alert.id}/history", headers=reader_headers)
 
     assert response.status_code == 200
     history = response.json()
@@ -359,14 +368,20 @@ def test_history_returns_every_transition_newest_first(
     assert first["reason"] is None
 
 
-def test_history_of_an_untouched_alert_is_empty(client, alert_factory):
+def test_history_of_an_untouched_alert_is_empty(client, alert_factory, reader_headers):
     alert = alert_factory()
 
-    assert client.get(f"/api/v1/alerts/{alert.id}/history").json() == []
+    assert (
+        client.get(f"/api/v1/alerts/{alert.id}/history", headers=reader_headers).json()
+        == []
+    )
 
 
-def test_history_of_an_unknown_alert_is_404(client):
-    assert client.get("/api/v1/alerts/999999/history").status_code == 404
+def test_history_of_an_unknown_alert_is_404(client, reader_headers):
+    assert (
+        client.get("/api/v1/alerts/999999/history", headers=reader_headers).status_code
+        == 404
+    )
 
 
 # ---------------------------------------------------------------------------

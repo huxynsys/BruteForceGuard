@@ -47,7 +47,7 @@ def _reset(bind) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_summary_contract_is_stable(client, test_engine):
+def test_dashboard_summary_contract_is_stable(client, test_engine, reader_headers):
     now = datetime.now(timezone.utc)
     _reset(test_engine)
 
@@ -152,7 +152,7 @@ def test_dashboard_summary_contract_is_stable(client, test_engine):
         )
         db.commit()
 
-    response = client.get("/api/v1/dashboard/summary")
+    response = client.get("/api/v1/dashboard/summary", headers=reader_headers)
     assert response.status_code == 200
     body = response.json()
 
@@ -354,16 +354,26 @@ OK_ENDPOINTS = [
 ]
 
 
-def test_api_returns_200_for_all_read_endpoints(client):
+def test_api_returns_200_for_all_read_endpoints(client, reader_headers):
     for path in OK_ENDPOINTS:
-        assert client.get(path).status_code == 200, path
+        assert client.get(path, headers=reader_headers).status_code == 200, path
 
 
-def test_api_returns_404_for_missing_resources(client):
-    assert client.get("/api/v1/events/999999").status_code == 404
-    assert client.get("/api/v1/alerts/999999").status_code == 404
-    assert client.get("/api/v1/attack-sessions/999999").status_code == 404
-    assert client.get("/api/v1/intelligence/mitre/NOPE").status_code == 404
+def test_api_returns_404_for_missing_resources(client, reader_headers):
+    assert (
+        client.get("/api/v1/events/999999", headers=reader_headers).status_code == 404
+    )
+    assert (
+        client.get("/api/v1/alerts/999999", headers=reader_headers).status_code == 404
+    )
+    assert (
+        client.get("/api/v1/attack-sessions/999999", headers=reader_headers).status_code
+        == 404
+    )
+    assert (
+        client.get("/api/v1/intelligence/mitre/NOPE", headers=reader_headers).status_code
+        == 404
+    )
 
 
 def test_api_returns_422_for_invalid_event_payloads(client):
@@ -397,8 +407,10 @@ INVALID_INDICATORS = [
 
 
 @pytest.mark.parametrize("payload", INVALID_INDICATORS)
-def test_invalid_indicators_are_rejected(client, payload):
-    response = client.post("/api/v1/intelligence/indicators", json=payload)
+def test_invalid_indicators_are_rejected(client, payload, admin_headers):
+    response = client.post(
+        "/api/v1/intelligence/indicators", json=payload, headers=admin_headers
+    )
     assert response.status_code == 422, payload
 
 
@@ -415,10 +427,14 @@ def test_valid_indicators_are_accepted_and_discoverable(
     client,
     test_engine,
     payload,
+    admin_headers,
+    reader_headers,
 ):
     _reset(test_engine)
 
-    response = client.post("/api/v1/intelligence/indicators", json=payload)
+    response = client.post(
+        "/api/v1/intelligence/indicators", json=payload, headers=admin_headers
+    )
     assert response.status_code == 201
 
     body = response.json()
@@ -429,6 +445,7 @@ def test_valid_indicators_are_accepted_and_discoverable(
     listed = client.get(
         "/api/v1/intelligence/indicators",
         params={"indicator_type": payload["indicator_type"]},
+        headers=reader_headers,
     )
     assert listed.status_code == 200
     assert [row["indicator"] for row in listed.json()] == [
@@ -436,11 +453,12 @@ def test_valid_indicators_are_accepted_and_discoverable(
     ]
 
 
-def test_ip_lookup_finds_a_stored_indicator(client, test_engine):
+def test_ip_lookup_finds_a_stored_indicator(client, test_engine, admin_headers, reader_headers):
     _reset(test_engine)
 
     created = client.post(
         "/api/v1/intelligence/indicators",
+        headers=admin_headers,
         json={
             "indicator": "203.0.113.7",
             "indicator_type": "ipv4",
@@ -450,7 +468,7 @@ def test_ip_lookup_finds_a_stored_indicator(client, test_engine):
     )
     assert created.status_code == 201
 
-    lookup = client.get("/api/v1/intelligence/ip/203.0.113.7")
+    lookup = client.get("/api/v1/intelligence/ip/203.0.113.7", headers=reader_headers)
     assert lookup.status_code == 200
 
     result = lookup.json()
@@ -463,10 +481,11 @@ def test_ip_lookup_finds_a_stored_indicator(client, test_engine):
 def test_ip_lookup_for_unknown_indicator_is_not_reported_as_safe(
     client,
     test_engine,
+    reader_headers,
 ):
     _reset(test_engine)
 
-    lookup = client.get("/api/v1/intelligence/ip/198.51.100.200")
+    lookup = client.get("/api/v1/intelligence/ip/198.51.100.200", headers=reader_headers)
     assert lookup.status_code == 200
 
     result = lookup.json()

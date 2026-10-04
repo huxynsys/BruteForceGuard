@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import Principal, require_reader
 from app.db.database import get_db
 from app.models.alert import Alert
 from app.models.attack_session import AttackSession
@@ -39,7 +40,10 @@ def _naive_utc(value: datetime) -> datetime:
 
 
 @router.get("/summary")
-def get_dashboard_summary(db: Session = Depends(get_db)):
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
+):
     """
     Aggregated dashboard summary: totals, severity and detection
     distributions. One clean data source for the dashboard KPIs.
@@ -105,7 +109,10 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/analytics")
-def get_dashboard_analytics(db: Session = Depends(get_db)):
+def get_dashboard_analytics(
+    db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
+):
     """
     Analytics data: authentication activity over the last 24 hours
     (hourly buckets), plus top attacking IPs, targeted usernames and

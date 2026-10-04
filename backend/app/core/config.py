@@ -73,6 +73,28 @@ class Settings(BaseSettings):
     # configured - the same fail-closed posture as IP management.
     alert_triage_api_tokens: str = ""
 
+    # --- Interactive authentication (login sessions + RBAC) ----------------
+    # Lifetime of a login session in minutes.  Sessions are stored server-side
+    # as SHA-256 token hashes with an explicit expiry and revocation timestamp
+    # (logout, password change, deactivation and role change all revoke them).
+    auth_session_ttl_minutes: int = 480
+
+    # PBKDF2-HMAC-SHA256 iterations for password hashing.  The iteration count
+    # is stored inside each hash, so raising this never invalidates existing
+    # passwords.  Lowered automatically by the test suite for speed.
+    auth_password_iterations: int = 600_000
+
+    # First-run bootstrap administrator.  Created at startup when the password
+    # is non-empty and the username does not exist yet; never overwritten
+    # afterwards (rotate via PATCH /api/v1/users/{id}).  Empty = disabled.
+    auth_bootstrap_admin_username: str = "admin"
+    auth_bootstrap_admin_password: str = ""
+
+    # Login brute-force guard: after this many failed attempts per
+    # (client IP, username) inside the window, login answers 429.
+    auth_login_max_failures: int = 5
+    auth_login_window_seconds: int = 300
+
     # --- Legacy bootstrap (development / tests only) -------------------
     # Alembic is the authoritative schema mechanism (Phase 9.2).  This flag
     # exists so legacy `create_all` workflows can still be bootstrapped

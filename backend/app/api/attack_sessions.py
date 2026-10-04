@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import Principal, require_reader
 from app.db.database import get_db
 from app.models.attack_session import AttackSession
 from app.schemas.attack_session import AttackSessionResponse
@@ -17,6 +18,7 @@ router = APIRouter(
 @router.get("/", response_model=list[AttackSessionResponse])
 def list_sessions(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
     limit: int = 100,
     status: str | None = None,
 ):
@@ -35,6 +37,7 @@ def list_sessions(
 def get_session(
     session_id: int,
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
 ):
     """Get a specific attack session by ID."""
     session = db.get(AttackSession, session_id)
@@ -49,6 +52,8 @@ def get_session(
 def close_session(
     session_id: int,
     db: Session = Depends(get_db),
+    # Any authenticated analyst/admin may close a session (operational triage).
+    _: Principal = Depends(require_reader),
 ):
     """Manually close an attack session."""
     session_service = SessionService(db)
@@ -63,6 +68,7 @@ def close_session(
 @router.get("/stats/active")
 def get_active_stats(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
 ):
     """Get statistics about active sessions."""
     statement = select(AttackSession).where(AttackSession.status == "active")

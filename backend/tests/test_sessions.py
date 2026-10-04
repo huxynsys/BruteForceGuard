@@ -37,10 +37,10 @@ def _trigger_session(client, *, source_ip, username, service="ssh"):
         )
 
 
-def test_list_attack_sessions(client):
+def test_list_attack_sessions(client, reader_headers):
     _trigger_session(client, source_ip="192.168.50.10", username="admin")
 
-    response = client.get("/api/v1/attack-sessions/")
+    response = client.get("/api/v1/attack-sessions/", headers=reader_headers)
     assert response.status_code == 200
 
     sessions = response.json()
@@ -60,41 +60,66 @@ def test_list_attack_sessions(client):
     assert session["ended_at"] is None
 
 
-def test_get_attack_session_by_id(client):
+def test_get_attack_session_by_id(client, reader_headers):
     _trigger_session(client, source_ip="192.168.50.10", username="admin")
 
-    session_id = client.get("/api/v1/attack-sessions/").json()[0]["id"]
+    session_id = client.get(
+        "/api/v1/attack-sessions/", headers=reader_headers
+    ).json()[0]["id"]
 
-    response = client.get(f"/api/v1/attack-sessions/{session_id}")
+    response = client.get(
+        f"/api/v1/attack-sessions/{session_id}", headers=reader_headers
+    )
     assert response.status_code == 200
     assert response.json()["id"] == session_id
     assert response.json()["status"] == "active"
 
 
-def test_close_attack_session(client):
+def test_close_attack_session(client, reader_headers):
     _trigger_session(client, source_ip="192.168.50.11", username="admin")
 
-    session_id = client.get("/api/v1/attack-sessions/").json()[0]["id"]
+    session_id = client.get(
+        "/api/v1/attack-sessions/", headers=reader_headers
+    ).json()[0]["id"]
 
     # Session starts active and has not ended yet.
-    assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["status"] == "active"
-    assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["ended_at"] is None
+    assert (
+        client.get(
+            f"/api/v1/attack-sessions/{session_id}", headers=reader_headers
+        ).json()["status"]
+        == "active"
+    )
+    assert (
+        client.get(
+            f"/api/v1/attack-sessions/{session_id}", headers=reader_headers
+        ).json()["ended_at"]
+        is None
+    )
 
     # Close it.
-    response = client.post(f"/api/v1/attack-sessions/{session_id}/close")
+    response = client.post(
+        f"/api/v1/attack-sessions/{session_id}/close", headers=reader_headers
+    )
     assert response.status_code == 200
     assert response.json()["status"] == "closed"
     assert response.json()["ended_at"] is not None
 
     # It stays closed.
-    assert client.get(f"/api/v1/attack-sessions/{session_id}").json()["status"] == "closed"
+    assert (
+        client.get(
+            f"/api/v1/attack-sessions/{session_id}", headers=reader_headers
+        ).json()["status"]
+        == "closed"
+    )
 
 
-def test_active_session_stats(client):
+def test_active_session_stats(client, reader_headers):
     _trigger_session(client, source_ip="192.168.50.12", username="bob")
     _trigger_session(client, source_ip="192.168.50.13", username="carol")
 
-    stats = client.get("/api/v1/attack-sessions/stats/active").json()
+    stats = client.get(
+        "/api/v1/attack-sessions/stats/active", headers=reader_headers
+    ).json()
 
     assert stats["active_sessions"] == 2
     assert stats["total_events"] == 2
@@ -102,19 +127,30 @@ def test_active_session_stats(client):
     assert stats["unique_usernames"] == 2
 
 
-def test_active_stats_reflect_closed_sessions(client):
+def test_active_stats_reflect_closed_sessions(client, reader_headers):
     _trigger_session(client, source_ip="192.168.50.14", username="dave")
 
-    session_id = client.get("/api/v1/attack-sessions/").json()[0]["id"]
-    client.post(f"/api/v1/attack-sessions/{session_id}/close")
+    session_id = client.get(
+        "/api/v1/attack-sessions/", headers=reader_headers
+    ).json()[0]["id"]
+    client.post(
+        f"/api/v1/attack-sessions/{session_id}/close", headers=reader_headers
+    )
 
-    stats = client.get("/api/v1/attack-sessions/stats/active").json()
+    stats = client.get(
+        "/api/v1/attack-sessions/stats/active", headers=reader_headers
+    ).json()
     assert stats["active_sessions"] == 0
     assert stats["total_events"] == 0
 
 
-def test_missing_session_returns_404(client):
-    assert client.get("/api/v1/attack-sessions/999999").status_code == 404
+def test_missing_session_returns_404(client, reader_headers):
+    assert (
+        client.get("/api/v1/attack-sessions/999999", headers=reader_headers).status_code
+        == 404
+    )
 
-    response = client.post("/api/v1/attack-sessions/999999/close")
+    response = client.post(
+        "/api/v1/attack-sessions/999999/close", headers=reader_headers
+    )
     assert response.status_code == 404

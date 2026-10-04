@@ -3,11 +3,13 @@ from typing import List, Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import Principal, bearer_token, require_reader
 from app.core.config import settings
 from app.db.database import get_db
 from app.crud import blacklist as crud_blacklist
 from app.models.audit_log import AuditAction, AuditResult
 from app.schemas.blacklist import BlacklistEntryCreate, BlacklistEntryResponse
+from app.services import auth_service
 from app.services.audit_service import AuditService, client_ip
 
 
@@ -26,13 +28,20 @@ def require_ip_management_auth(
 ) -> str:
     """Authenticate an IP-management write and return the acting identity.
 
-    The bearer token (``IP_MANAGEMENT_API_TOKENS``) authenticates the
-    request and ``X-User-Id`` names the actor recorded in the audit trail.
-    Every rejection is appended to the security audit log before the
-    exception is raised - without the presented token, which is never
-    stored.  An unconfigured deployment fails closed with 503 (a
-    configuration state rather than an authentication attempt, so it is not
-    audited).
+    Two credentials are accepted, in order:
+
+    * a live **admin login session** (``POST /api/v1/auth/login``) - the
+      analyst role is rejected with 403 because blocklist/whitelist changes
+      are admin-only unless explicitly authorized;
+    * the static bearer token (``IP_MANAGEMENT_API_TOKENS``) - an explicitly
+      authorized deployment credential, unchanged behaviour.
+
+    ``X-User-Id`` names the actor for the static-token path (session
+    identities come from the account).  Every rejection is appended to the
+    security audit log before the exception is raised - without the presented
+    token, which is never stored.  An unconfigured deployment fails closed
+    with 503 (a configuration state rather than an authentication attempt,
+    so it is not audited).
     """
 
     audit = AuditService(db)
@@ -48,6 +57,21 @@ def require_ip_management_auth(
             detail={"path": path, "status": status_code},
         )
         return HTTPException(status_code=status_code, detail=detail, headers=headers or None)
+
+    # Admin login sessions authenticate even when no static tokens are
+    # configured; analyst sessions are explicitly not authorized here.
+    token = bearer_token(authorization)
+    if token:
+        resolved = auth_service.resolve_session(db, token)
+        if resolved is not None:
+            user, _session_row = resolved
+            if user.role != "admin":
+                raise _deny(
+                    "IP management write rejected: insufficient role",
+                    status.HTTP_403_FORBIDDEN,
+                    "IP management requires the admin role or an authorized token",
+                )
+            return user.username
 
     if not settings.ip_management_api_token_list:
         raise HTTPException(
@@ -173,7 +197,9 @@ def read_blacklist_entries(
     limit: int = Query(default=100, ge=1, le=500),
     list_type: Literal["BLOCKLIST", "WHITELIST"] | None = None,
     db: Session = Depends(get_db),
-    _: str = Depends(require_ip_management_auth),
+    # Viewing the lists is "view security data": any authenticated analyst
+    # or admin.  Changing them (POST/DELETE) stays admin/token-gated above.
+    _: Principal = Depends(require_reader),
 ):
     entries = crud_blacklist.get_blacklist_entries(
         db,

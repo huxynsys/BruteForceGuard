@@ -17,8 +17,10 @@ def _iso(minutes: int) -> str:
     return (BASE + timedelta(minutes=minutes)).isoformat()
 
 
-def _get(client: TestClient, query: str = "") -> dict:
-    response = client.get(f"/api/v1/events/groups{query}")
+def _get(client: TestClient, query: str = "", *, reader_headers=None) -> dict:
+    response = client.get(
+        f"/api/v1/events/groups{query}", headers=reader_headers
+    )
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -45,19 +47,19 @@ def _seed(client: TestClient, **overrides) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_empty_database_returns_empty_page(client):
-    body = _get(client)
+def test_empty_database_returns_empty_page(client, reader_headers):
+    body = _get(client, reader_headers=reader_headers)
 
     assert body["items"] == []
     assert body["total"] == 0
 
 
-def test_events_are_grouped_by_source_ip(client):
+def test_events_are_grouped_by_source_ip(client, reader_headers):
     for minute in (0, 1):
         _seed(client, timestamp=_iso(minute), source_ip="10.0.0.1")
     _seed(client, timestamp=_iso(2), source_ip="10.0.0.2", result="success")
 
-    body = _get(client)
+    body = _get(client, reader_headers=reader_headers)
 
     assert body["total"] == 2
     assert len(body["items"]) == 2
@@ -66,12 +68,12 @@ def test_events_are_grouped_by_source_ip(client):
     assert all(g["group_field"] == "source_ip" for g in body["items"])
 
 
-def test_group_aggregates_count_success_and_failure(client):
+def test_group_aggregates_count_success_and_failure(client, reader_headers):
     _seed(client, timestamp=_iso(0), source_ip="10.0.0.1", result="failure")
     _seed(client, timestamp=_iso(5), source_ip="10.0.0.1", result="failure")
     _seed(client, timestamp=_iso(10), source_ip="10.0.0.1", result="success")
 
-    body = _get(client)
+    body = _get(client, reader_headers=reader_headers)
     group = body["items"][0]
 
     assert group["group_key"] == "10.0.0.1"
@@ -84,22 +86,22 @@ def test_group_aggregates_count_success_and_failure(client):
     assert group["services"] == ["ssh"]
 
 
-def test_group_users_and_services_are_deduplicated(client):
+def test_group_users_and_services_are_deduplicated(client, reader_headers):
     _seed(client, timestamp=_iso(0), username="root")
     _seed(client, timestamp=_iso(1), username="root")
     _seed(client, timestamp=_iso(2), username="root", service="web", port=443)
 
-    group = _get(client)["items"][0]
+    group = _get(client, reader_headers=reader_headers)["items"][0]
 
     assert group["usernames"] == ["root"]
     assert group["services"] == ["ssh", "web"]
 
 
-def test_group_events_are_bounded_by_events_limit(client):
+def test_group_events_are_bounded_by_events_limit(client, reader_headers):
     for minute in range(5):
         _seed(client, timestamp=_iso(minute), source_ip="10.0.0.7")
 
-    body = _get(client, "?events_limit=2")
+    body = _get(client, "?events_limit=2", reader_headers=reader_headers)
     group = body["items"][0]
 
     # Aggregates cover all 5 events, but only the 2 most recent are shipped.
@@ -110,12 +112,12 @@ def test_group_events_are_bounded_by_events_limit(client):
     assert body["total"] == 1
 
 
-def test_group_usernames_stay_complete_beyond_events_limit(client):
+def test_group_usernames_stay_complete_beyond_events_limit(client, reader_headers):
     _seed(client, timestamp=_iso(0), source_ip="10.0.0.8", username="alpha")
     _seed(client, timestamp=_iso(1), source_ip="10.0.0.8", username="beta")
     _seed(client, timestamp=_iso(2), source_ip="10.0.0.8", username="gamma")
 
-    group = _get(client, "?events_limit=1")["items"][0]
+    group = _get(client, "?events_limit=1", reader_headers=reader_headers)["items"][0]
 
     # Aggregates and context come from ALL events, not the capped list.
     assert group["event_count"] == 3
@@ -123,7 +125,7 @@ def test_group_usernames_stay_complete_beyond_events_limit(client):
     assert group["usernames"] == ["alpha", "beta", "gamma"]
 
 
-def test_group_attack_context_is_derived_from_alerts(client, alert_factory):
+def test_group_attack_context_is_derived_from_alerts(client, alert_factory, reader_headers):
     _seed(client, timestamp=_iso(0), source_ip="10.0.0.9")
     alert_factory(
         alert_type="password_spray",
@@ -131,6 +133,6 @@ def test_group_attack_context_is_derived_from_alerts(client, alert_factory):
         evidence={"session_id": 3},
     )
 
-    group = _get(client)["items"][0]
+    group = _get(client, reader_headers=reader_headers)["items"][0]
 
     assert group["alert_types"] == ["password_spray"]

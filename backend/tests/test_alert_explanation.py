@@ -19,7 +19,7 @@ from app.services.alert_explanation import build_alert_explanation
 # ---------------------------------------------------------------------------
 
 
-def test_detail_returns_every_structured_field(client, alert_factory):
+def test_detail_returns_every_structured_field(client, alert_factory, reader_headers):
     alert = alert_factory(
         alert_type="single_account_bruteforce",
         service="ssh",
@@ -28,7 +28,9 @@ def test_detail_returns_every_structured_field(client, alert_factory):
         evidence={"failure_count": 37, "window_seconds": 300},
     )
 
-    explanation = client.get(f"/api/v1/alerts/{alert.id}").json()["explanation"]
+    explanation = client.get(
+        f"/api/v1/alerts/{alert.id}", headers=reader_headers
+    ).json()["explanation"]
 
     assert explanation["detection_type"] == "single_account_bruteforce"
     assert explanation["rule_name"] == "Single Account Brute Force"
@@ -50,11 +52,11 @@ def test_detail_returns_every_structured_field(client, alert_factory):
 
 
 def test_list_and_triage_responses_carry_the_explanation(
-    client, alert_factory, analyst_headers
+    client, alert_factory, analyst_headers, reader_headers
 ):
     alert = alert_factory(evidence={"failure_count": 12, "window_seconds": 300})
 
-    listed = client.get("/api/v1/alerts/").json()
+    listed = client.get("/api/v1/alerts/", headers=reader_headers).json()
     patched = client.patch(
         f"/api/v1/alerts/{alert.id}",
         json={"status": "acknowledged"},
@@ -71,7 +73,7 @@ def test_list_and_triage_responses_carry_the_explanation(
 # ---------------------------------------------------------------------------
 
 
-def test_text_is_generated_from_the_structured_fields(client, alert_factory):
+def test_text_is_generated_from_the_structured_fields(client, alert_factory, reader_headers):
     alert = alert_factory(
         alert_type="single_account_bruteforce",
         service="ssh",
@@ -80,7 +82,9 @@ def test_text_is_generated_from_the_structured_fields(client, alert_factory):
         evidence={"failure_count": 37, "window_seconds": 300},
     )
 
-    text = client.get(f"/api/v1/alerts/{alert.id}").json()["explanation"]["text"]
+    text = client.get(
+        f"/api/v1/alerts/{alert.id}", headers=reader_headers
+    ).json()["explanation"]["text"]
 
     assert text == (
         "37 failed SSH authentication attempts from 192.168.1.50 "
@@ -202,14 +206,14 @@ def test_low_and_slow_window_is_humanized_as_an_hour(alert_factory):
 
 
 def test_unknown_alert_type_explains_itself_without_fabricating_a_rule(
-    client, alert_factory
+    client, alert_factory, reader_headers
 ):
     alert = alert_factory(
         alert_type="legacy_custom_rule",
         evidence={"failure_count": 9},
     )
 
-    body = client.get(f"/api/v1/alerts/{alert.id}").json()
+    body = client.get(f"/api/v1/alerts/{alert.id}", headers=reader_headers).json()
     explanation = body["explanation"]
 
     assert body["detection_rule"] is None
@@ -243,7 +247,7 @@ def test_alert_without_recorded_counts_still_explains_itself(alert_factory):
 # ---------------------------------------------------------------------------
 
 
-def test_explanation_never_leaks_non_engine_evidence(client, alert_factory):
+def test_explanation_never_leaks_non_engine_evidence(client, alert_factory, reader_headers):
     alert = alert_factory(
         evidence={
             "failure_count": 12,
@@ -256,7 +260,9 @@ def test_explanation_never_leaks_non_engine_evidence(client, alert_factory):
         },
     )
 
-    explanation = client.get(f"/api/v1/alerts/{alert.id}").json()["explanation"]
+    explanation = client.get(
+        f"/api/v1/alerts/{alert.id}", headers=reader_headers
+    ).json()["explanation"]
     serialized = json.dumps(explanation)
 
     assert "hunter2" not in serialized

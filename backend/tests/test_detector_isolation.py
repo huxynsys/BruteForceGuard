@@ -25,7 +25,7 @@ def _post(client, timestamp, **overrides):
     return response.json()
 
 
-def test_broken_detector_does_not_block_ingestion(client, monkeypatch):
+def test_broken_detector_does_not_block_ingestion(client, monkeypatch, reader_headers):
     """A detector that raises must not prevent the event being saved."""
     import app.services.detection_service as ds
 
@@ -47,19 +47,19 @@ def test_broken_detector_does_not_block_ingestion(client, monkeypatch):
             (base + timedelta(seconds=i * 5)).isoformat() + "Z",
         )
 
-    events = client.get("/api/v1/events/").json()
+    events = client.get("/api/v1/events/", headers=reader_headers).json()
     assert len(events) == 5
 
     # The healthy detectors still produced their alert and session.
-    alerts = client.get("/api/v1/alerts/").json()
+    alerts = client.get("/api/v1/alerts/", headers=reader_headers).json()
     assert [a["alert_type"] for a in alerts] == ["single_account_bruteforce"]
 
-    sessions = client.get("/api/v1/attack-sessions/").json()
+    sessions = client.get("/api/v1/attack-sessions/", headers=reader_headers).json()
     assert len(sessions) == 1
     assert sessions[0]["session_type"] == "single_account"
 
 
-def test_every_broken_detector_still_ingests(client, monkeypatch):
+def test_every_broken_detector_still_ingests(client, monkeypatch, reader_headers):
     """Even if EVERY detector fails, the event itself is still saved."""
     import app.services.detection_service as ds
 
@@ -78,8 +78,8 @@ def test_every_broken_detector_still_ingests(client, monkeypatch):
 
     _post(client, datetime.now().isoformat() + "Z")
 
-    events = client.get("/api/v1/events/").json()
+    events = client.get("/api/v1/events/", headers=reader_headers).json()
     assert len(events) == 1
 
-    assert client.get("/api/v1/alerts/").json() == []
-    assert client.get("/api/v1/attack-sessions/").json() == []
+    assert client.get("/api/v1/alerts/", headers=reader_headers).json() == []
+    assert client.get("/api/v1/attack-sessions/", headers=reader_headers).json() == []

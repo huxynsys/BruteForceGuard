@@ -16,9 +16,10 @@ from app.intelligence.schemas import ThreatIndicatorCreate
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture()
-def sample_indicator(client: TestClient) -> dict:
+def sample_indicator(client: TestClient, admin_headers) -> dict:
     response = client.post(
         "/api/v1/intelligence/indicators",
+        headers=admin_headers,
         json={
             "indicator": "203.0.113.50",
             "indicator_type": "ipv4",
@@ -36,8 +37,10 @@ def sample_indicator(client: TestClient) -> dict:
 # ---------------------------------------------------------------------------
 # 7.30 Intelligence API exists
 # ---------------------------------------------------------------------------
-def test_lookup_ip_endpoint(client: TestClient, sample_indicator: dict):
-    response = client.get("/api/v1/intelligence/ip/203.0.113.50")
+def test_lookup_ip_endpoint(client: TestClient, sample_indicator: dict, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/ip/203.0.113.50", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["known"] is True
@@ -45,8 +48,10 @@ def test_lookup_ip_endpoint(client: TestClient, sample_indicator: dict):
     assert data["indicator_type"] == "ipv4"
 
 
-def test_lookup_ip_unknown(client: TestClient):
-    response = client.get("/api/v1/intelligence/ip/198.51.100.1")
+def test_lookup_ip_unknown(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/ip/198.51.100.1", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["known"] is False
@@ -55,8 +60,10 @@ def test_lookup_ip_unknown(client: TestClient):
 # ---------------------------------------------------------------------------
 # 7.31 Reputation API exists
 # ---------------------------------------------------------------------------
-def test_reputation_endpoint(client: TestClient):
-    response = client.get("/api/v1/intelligence/reputation/10.0.0.1")
+def test_reputation_endpoint(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/reputation/10.0.0.1", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert "internal_reputation_score" in data
@@ -64,8 +71,10 @@ def test_reputation_endpoint(client: TestClient):
     assert data["source_ip"] == "10.0.0.1"
 
 
-def test_reputation_new_ip(client: TestClient):
-    response = client.get("/api/v1/intelligence/reputation/192.168.1.1")
+def test_reputation_new_ip(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/reputation/192.168.1.1", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["internal_reputation_score"] == 0
@@ -75,8 +84,10 @@ def test_reputation_new_ip(client: TestClient):
 # ---------------------------------------------------------------------------
 # 7.32 MITRE API exists
 # ---------------------------------------------------------------------------
-def test_mitre_endpoint(client: TestClient):
-    response = client.get("/api/v1/intelligence/mitre/T1110.001")
+def test_mitre_endpoint(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/mitre/T1110.001", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["technique_id"] == "T1110.001"
@@ -85,8 +96,11 @@ def test_mitre_endpoint(client: TestClient):
     assert data["is_mapped"] is True
 
 
-def test_mitre_by_detection_type(client: TestClient):
-    response = client.get("/api/v1/intelligence/mitre/single_account_bruteforce")
+def test_mitre_by_detection_type(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/mitre/single_account_bruteforce",
+        headers=reader_headers,
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["technique_id"] == "T1110.001"
@@ -98,9 +112,10 @@ def test_mitre_by_detection_type(client: TestClient):
 # ---------------------------------------------------------------------------
 # 7.33 Indicator operations are validated
 # ---------------------------------------------------------------------------
-def test_create_indicator(client: TestClient):
+def test_create_indicator(client: TestClient, admin_headers):
     response = client.post(
         "/api/v1/intelligence/indicators",
+        headers=admin_headers,
         json={
             "indicator": "10.0.0.99",
             "indicator_type": "ipv4",
@@ -115,9 +130,10 @@ def test_create_indicator(client: TestClient):
     assert data["active"] is True
 
 
-def test_create_indicator_invalid_type(client: TestClient):
+def test_create_indicator_invalid_type(client: TestClient, admin_headers):
     response = client.post(
         "/api/v1/intelligence/indicators",
+        headers=admin_headers,
         json={
             "indicator": "test",
             "indicator_type": "invalid",
@@ -127,9 +143,10 @@ def test_create_indicator_invalid_type(client: TestClient):
     assert response.status_code == 422
 
 
-def test_create_indicator_confidence_out_of_range(client: TestClient):
+def test_create_indicator_confidence_out_of_range(client: TestClient, admin_headers):
     response = client.post(
         "/api/v1/intelligence/indicators",
+        headers=admin_headers,
         json={
             "indicator": "test",
             "indicator_type": "ipv4",
@@ -139,43 +156,61 @@ def test_create_indicator_confidence_out_of_range(client: TestClient):
     assert response.status_code == 422
 
 
-def test_list_indicators(client: TestClient, sample_indicator: dict):
-    response = client.get("/api/v1/intelligence/indicators")
+def test_list_indicators(client: TestClient, sample_indicator: dict, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/indicators", headers=reader_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
 
 
-def test_list_indicators_filter_type(client: TestClient, sample_indicator: dict):
-    response = client.get("/api/v1/intelligence/indicators?indicator_type=ipv4")
+def test_list_indicators_filter_type(
+    client: TestClient, sample_indicator: dict, reader_headers
+):
+    response = client.get(
+        "/api/v1/intelligence/indicators?indicator_type=ipv4",
+        headers=reader_headers,
+    )
     assert response.status_code == 200
     data = response.json()
     assert all(item["indicator_type"] == "ipv4" for item in data)
 
 
-def test_list_indicators_active_only(client: TestClient, sample_indicator: dict):
-    response = client.get("/api/v1/intelligence/indicators?active_only=true")
+def test_list_indicators_active_only(
+    client: TestClient, sample_indicator: dict, reader_headers
+):
+    response = client.get(
+        "/api/v1/intelligence/indicators?active_only=true",
+        headers=reader_headers,
+    )
     assert response.status_code == 200
     data = response.json()
     assert all(item["active"] is True for item in data)
 
 
-def test_delete_indicator(client: TestClient, sample_indicator: dict):
+def test_delete_indicator(client: TestClient, sample_indicator: dict, admin_headers):
     indicator_id = sample_indicator["id"]
-    response = client.delete(f"/api/v1/intelligence/indicators/{indicator_id}")
+    response = client.delete(
+        f"/api/v1/intelligence/indicators/{indicator_id}", headers=admin_headers
+    )
     assert response.status_code == 204
 
 
-def test_delete_nonexistent_indicator(client: TestClient):
-    response = client.delete("/api/v1/intelligence/indicators/9999")
+def test_delete_nonexistent_indicator(client: TestClient, admin_headers):
+    response = client.delete(
+        "/api/v1/intelligence/indicators/9999", headers=admin_headers
+    )
     assert response.status_code == 404
-def test_mitre_unknown_404(client: TestClient):
-    response = client.get("/api/v1/intelligence/mitre/unknown_technique")
+def test_mitre_unknown_404(client: TestClient, reader_headers):
+    response = client.get(
+        "/api/v1/intelligence/mitre/unknown_technique", headers=reader_headers
+    )
     assert response.status_code == 404
 
 
-def test_list_mitre_mappings(client: TestClient):
-    response = client.get("/api/v1/intelligence/mitre")
+def test_list_mitre_mappings(client: TestClient, reader_headers):
+    response = client.get("/api/v1/intelligence/mitre", headers=reader_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0

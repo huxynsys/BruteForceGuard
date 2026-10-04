@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import Principal, require_reader
 from app.db.database import get_db
 from app.schemas.auth_event import (
     AuthEventCreate,
@@ -95,6 +96,7 @@ def create_event(
 @router.get("/", response_model=list[AuthEventResponse])
 def list_events(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
     limit: int = 100,
     skip: int = 0,
 ):
@@ -111,6 +113,7 @@ def list_events(
 @router.get("/groups", response_model=EventGroupPage)
 def list_event_groups(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
     search: str | None = None,
     result: str | None = None,
     sort: str = "recent",
@@ -159,6 +162,7 @@ def list_event_groups(
 def get_event(
     event_id: int,
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
 ):
     """Get a specific authentication event by ID."""
 

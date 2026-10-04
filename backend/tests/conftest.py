@@ -35,6 +35,7 @@ import app.models.alert  # noqa: F401  (Alert + AlertStatusHistory)
 import app.models.attack_session  # noqa: F401
 import app.models.threat_indicator  # noqa: F401
 import app.models.audit_log  # noqa: F401  (SecurityAuditLog)
+import app.models.user  # noqa: F401  (User + AuthSession)
 
 from app.core.config import settings
 
@@ -69,6 +70,17 @@ def admin_headers():
     """Valid credentials for an admin-role triage request."""
 
     return {"Authorization": "Bearer admin-token", "X-User-Id": "admin"}
+
+
+@pytest.fixture()
+def reader_headers():
+    """Credentials for a read-only (analyst) request.
+
+    Reads only require *any* authenticated principal, so the analyst token is
+    enough; the identity header is included for parity with the write paths.
+    """
+
+    return {"Authorization": "Bearer analyst-token", "X-User-Id": "analyst"}
 
 
 @compiles(INET, "sqlite")

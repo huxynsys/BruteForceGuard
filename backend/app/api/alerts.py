@@ -18,9 +18,12 @@ detection without duplicating thresholds in the browser.
 
 Triage writes (``PATCH``) require a bearer token bound to an ``analyst`` or
 ``admin`` role via ``ALERT_TRIAGE_API_TOKENS`` plus an ``X-User-Id`` identity
-header; the state machine in ``app.services.alert_lifecycle`` then decides
-whether the requested transition is legal for that role.  Read endpoints stay
-public - only state *changes* are gated.
+header - or a live login session (``POST /api/v1/auth/login``), whose role
+comes from the user's account; the state machine in
+``app.services.alert_lifecycle`` then decides whether the requested
+transition is legal for that role.  Reads require any authenticated
+principal (admin or analyst) via ``require_reader`` - the role decides what
+you may *do*, both roles may view security data.
 
 Note: ``/stats`` is declared before ``/{alert_id}`` so the static path is not
 captured by the dynamic one.
@@ -31,6 +34,7 @@ from dataclasses import dataclass
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
+from app.api.deps import Principal, bearer_token, require_reader
 from app.core.config import settings
 from app.core.detection_config import get_detection_rule
 from app.db.database import get_db
@@ -45,6 +49,7 @@ from app.schemas.alert import (
     AlertStatusTransition,
     AlertStatusUpdate,
 )
+from app.services import auth_service
 from app.services.alert_explanation import build_alert_explanation
 from app.services.alert_lifecycle import (
     InvalidTransitionError,
@@ -103,6 +108,17 @@ def require_alert_triage_auth(
             detail={"path": path, "status": status_code},
         )
         return HTTPException(status_code=status_code, detail=detail, headers=headers or None)
+
+    # Interactive login sessions authenticate first: their role comes from
+    # the user's account (re-checked for expiry/revocation on every request)
+    # and they work even when no static triage tokens are configured.  No
+    # X-User-Id header is needed - the identity *is* the session's user.
+    token = bearer_token(authorization)
+    if token:
+        resolved = auth_service.resolve_session(db, token)
+        if resolved is not None:
+            user, _session_row = resolved
+            return TriageActor(user=user.username, role=user.role)
 
     token_roles = settings.alert_triage_token_roles
     if not token_roles:
@@ -168,6 +184,7 @@ def _with_detection_rule(alert: Alert) -> AlertResponse:
 @router.get("/", response_model=list[AlertResponse])
 def list_alerts(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     severity: AlertSeverity | None = Query(
@@ -207,6 +224,7 @@ def list_alerts(
 @router.get("/stats", response_model=AlertStats)
 def get_alert_stats(
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
     severity: AlertSeverity | None = Query(default=None),
     status: AlertStatus | None = Query(default=None),
     alert_type: str | None = Query(default=None, max_length=100),
@@ -226,6 +244,7 @@ def get_alert_stats(
 def get_alert(
     alert_id: int,
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
 ):
     """Get a single alert by ID (used by the alert investigation page)."""
     alert = AlertService(db).get_alert(alert_id)
@@ -238,6 +257,7 @@ def get_alert(
 def get_alert_status_history(
     alert_id: int,
     db: Session = Depends(get_db),
+    _: Principal = Depends(require_reader),
 ):
     """Audit trail of every lifecycle transition of one alert (newest first)."""
 

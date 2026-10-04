@@ -163,12 +163,13 @@ def test_api_latency_by_dataset_size(
     test_engine,
     records,
     record_property,
+    reader_headers,
 ):
     _seed(test_engine, records)
 
     for endpoint in ENDPOINTS:
         start = time.perf_counter()
-        response = client.get(endpoint)
+        response = client.get(endpoint, headers=reader_headers)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         assert response.status_code == 200, endpoint

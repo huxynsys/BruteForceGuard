@@ -84,7 +84,7 @@ def test_event_ingestion_survives_detection_failure(
 # ---------------------------------------------------------------------------
 
 
-def test_database_outage_returns_500_without_hanging(client, monkeypatch):
+def test_database_outage_returns_500_without_hanging(client, monkeypatch, reader_headers):
     strict = TestClient(app, raise_server_exceptions=False)
 
     def boom(self, limit: int = 100, skip: int = 0):  # noqa: ANN001
@@ -92,7 +92,7 @@ def test_database_outage_returns_500_without_hanging(client, monkeypatch):
 
     monkeypatch.setattr(EventService, "get_events", boom)
 
-    response = strict.get("/api/v1/events/")
+    response = strict.get("/api/v1/events/", headers=reader_headers)
 
     assert response.status_code == 500
 
@@ -100,6 +100,7 @@ def test_database_outage_returns_500_without_hanging(client, monkeypatch):
 def test_database_outage_on_alerts_returns_500_without_hanging(
     client,
     monkeypatch,
+    reader_headers,
 ):
     """Simulate the connection dropping during a query.
 
@@ -114,7 +115,7 @@ def test_database_outage_on_alerts_returns_500_without_hanging(
 
     monkeypatch.setattr("app.services.alert_service.select", boom)
 
-    response = strict.get("/api/v1/alerts/")
+    response = strict.get("/api/v1/alerts/", headers=reader_headers)
 
     assert response.status_code == 500
 

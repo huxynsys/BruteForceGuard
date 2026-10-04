@@ -36,12 +36,10 @@ from app.db.database import Base
 class AuditAction(str, Enum):
     """Canonical action vocabulary recorded in ``security_audit_logs``.
 
-    ``LOGIN`` / ``LOGOUT`` / ``SETTINGS_CHANGE`` / ``ROLE_CHANGE`` are
-    reserved for future endpoints: BruteForceGuard currently authenticates
-    with stateless bearer tokens (no sessions to log out of) and configures
-    roles/settings via the environment, so neither has a request path to
-    hook yet.  Successful authenticated actions record their own row with
-    the acting identity instead.
+    ``auth.login`` / ``auth.logout`` are written by the interactive
+    authentication endpoints (``/api/v1/auth``); ``user.*`` / ``role.change``
+    by admin user management; the remaining actions are written by the
+    endpoint-specific hooks described next to each value.
     """
 
     # Alert triage (PATCH /api/v1/alerts/{id})
@@ -56,11 +54,18 @@ class AuditAction(str, Enum):
     # Failed authentication on any token-gated endpoint
     AUTH_FAILED = "auth.failed"
 
-    # Reserved vocabulary for endpoints that do not exist yet
+    # Interactive authentication (POST /api/v1/auth/login|logout)
     LOGIN = "auth.login"
     LOGOUT = "auth.logout"
-    SETTINGS_CHANGE = "settings.change"
+
+    # Admin user management (POST/PATCH /api/v1/users/)
+    USER_CREATE = "user.create"
+    USER_UPDATE = "user.update"
     ROLE_CHANGE = "role.change"
+
+    # Reserved for a future settings endpoint (configuration is env-based
+    # today, so no request path writes this action yet).
+    SETTINGS_CHANGE = "settings.change"
 
 
 class AuditResult(str, Enum):
