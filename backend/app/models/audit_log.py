@@ -63,8 +63,10 @@ class AuditAction(str, Enum):
     USER_UPDATE = "user.update"
     ROLE_CHANGE = "role.change"
 
-    # Reserved for a future settings endpoint (configuration is env-based
-    # today, so no request path writes this action yet).
+    # Runtime detection configuration (PUT /api/v1/config/, POST /reset).
+    # Written by ``app.services.config_service`` on every successful update
+    # or reset; the detail payload carries only the new version and whether
+    # the profile was reset, never the profile contents themselves.
     SETTINGS_CHANGE = "settings.change"
 
 

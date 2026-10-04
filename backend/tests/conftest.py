@@ -36,6 +36,7 @@ import app.models.attack_session  # noqa: F401
 import app.models.threat_indicator  # noqa: F401
 import app.models.audit_log  # noqa: F401  (SecurityAuditLog)
 import app.models.user  # noqa: F401  (User + AuthSession)
+import app.models.system_config  # noqa: F401  (SystemConfig)
 
 from app.core.config import settings
 
@@ -81,6 +82,23 @@ def reader_headers():
     """
 
     return {"Authorization": "Bearer analyst-token", "X-User-Id": "analyst"}
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_config():
+    """Isolate the process-local detection tuning between tests.
+
+    The configuration API persists profiles in the (per-test, in-memory)
+    database and applies them to a process-global tuning holder.  Resetting
+    that holder before every test guarantees a saved profile from one test
+    can never leak into another, keeping the built-in defaults authoritative
+    unless a test explicitly saves a configuration.
+    """
+    from app.core.detection_config import reset_runtime_tuning
+
+    reset_runtime_tuning()
+    yield
+    reset_runtime_tuning()
 
 
 @compiles(INET, "sqlite")

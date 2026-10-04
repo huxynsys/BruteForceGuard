@@ -7,12 +7,7 @@ from ipaddress import ip_address
 from typing import Callable
 
 from app.core.detection_config import (
-    CREDENTIAL_STUFFING_WINDOW_SECONDS,
-    FAILED_THEN_SUCCESS_MINIMUM_FAILURES,
-    FAILED_THEN_SUCCESS_WINDOW_SECONDS,
-    LOW_AND_SLOW_MINIMUM_ACTIVE_INTERVALS,
-    LOW_AND_SLOW_MINIMUM_FAILURES,
-    LOW_AND_SLOW_WINDOW_SECONDS,
+    get_rule_windows,
     get_service_thresholds,
 )
 from app.models.alert import Alert
@@ -80,21 +75,26 @@ class DetectionRule:
                 window_seconds=thresholds["window_seconds"],
             )
         elif self.detector_name == "detect_credential_stuffing":
+            windows = get_rule_windows()
             parameters.update(
                 minimum_users=thresholds["credential_stuffing_users"],
                 minimum_failures=thresholds["credential_stuffing_failures"],
-                window_seconds=CREDENTIAL_STUFFING_WINDOW_SECONDS,
+                window_seconds=windows["credential_stuffing_window_seconds"],
             )
         elif self.detector_name == "detect_failed_then_success":
+            windows = get_rule_windows()
             parameters.update(
-                minimum_failures=FAILED_THEN_SUCCESS_MINIMUM_FAILURES,
-                window_seconds=FAILED_THEN_SUCCESS_WINDOW_SECONDS,
+                minimum_failures=windows["failed_then_success_minimum_failures"],
+                window_seconds=windows["failed_then_success_window_seconds"],
             )
         elif self.detector_name == "detect_low_and_slow":
+            windows = get_rule_windows()
             parameters.update(
-                minimum_failures=LOW_AND_SLOW_MINIMUM_FAILURES,
-                window_seconds=LOW_AND_SLOW_WINDOW_SECONDS,
-                minimum_active_intervals=LOW_AND_SLOW_MINIMUM_ACTIVE_INTERVALS,
+                minimum_failures=windows["low_and_slow_minimum_failures"],
+                window_seconds=windows["low_and_slow_window_seconds"],
+                minimum_active_intervals=windows[
+                    "low_and_slow_minimum_active_intervals"
+                ],
             )
         return parameters
 

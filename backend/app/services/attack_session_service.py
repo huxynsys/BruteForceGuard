@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.auth_event import AuthEvent
 from app.models.alert import Alert
 from app.services.session_service import SessionService
+from app.core.detection_config import get_runtime_tuning
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class AttackSessionIntegrationService:
             username=username,
             service=service,
             event_timestamp=event.timestamp,
-            timeout_seconds=600,
+            timeout_seconds=get_runtime_tuning().correlation_timeout_seconds,
         )
 
         if session:

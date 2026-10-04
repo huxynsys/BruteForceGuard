@@ -21,6 +21,7 @@ from app.api.dashboard import router as dashboard_router  # Phase 6
 from app.api.health import router as health_router  # Phase 9.6
 from app.api.intelligence import router as intelligence_router  # Phase 7
 from app.api.audit import router as audit_router  # Security audit log
+from app.api.config import router as config_router  # Runtime configuration
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.database import Base, engine
@@ -30,6 +31,7 @@ from app.models.attack_session import AttackSession
 from app.models.threat_indicator import ThreatIndicator
 from app.models.audit_log import SecurityAuditLog  # noqa: F401 (register table)
 from app.models.user import AuthSession, User  # noqa: F401 (register tables)
+from app.models.system_config import SystemConfig  # noqa: F401 (register table)
 
 configure_logging()
 
@@ -67,6 +69,16 @@ async def lifespan(app: FastAPI):
                     "bootstrap administrator created username=%s",
                     created.username,
                 )
+
+        # Ongoing-configuration is authoritative, so a worker that restarts
+        # must re-apply the persisted profile to its process-local detection
+        # tuning.  Skipped silently when the table has not been migrated yet
+        # (Alembic remains authoritative) or when no profile exists yet.
+        if sa_inspect(engine).has_table("system_config"):
+            from app.services.config_service import load_config_into_tuning
+
+            with SASession(bind=engine) as session:
+                load_config_into_tuning(session)
     except Exception:  # pragma: no cover - never block startup on bootstrap
         logger.exception("bootstrap administrator setup failed")
     yield
@@ -153,4 +165,5 @@ app.include_router(attack_sessions_router)
 app.include_router(dashboard_router)  # Phase 6
 app.include_router(intelligence_router)  # Phase 7
 app.include_router(audit_router)  # Security audit log (read-only)
+app.include_router(config_router)  # Runtime detection configuration
 app.include_router(blacklist_router, prefix="/api/v1")
